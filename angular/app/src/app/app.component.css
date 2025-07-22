@@ -1,0 +1,55 @@
+/* Toolbar logo and title */
+mat-toolbar img {
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+mat-toolbar span {
+  font-size: 20px;
+}
+
+/* Center content */
+.content {
+  text-align: center;
+  margin-top: 40px;
+  padding: 0 20px;
+}
+
+/* Headline */
+.headline {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+/* Highlight card (GitHub link) */
+.highlight-card {
+  background: #1e88e5;
+  padding: 16px;
+  margin: 20px auto;
+  border-radius: 10px;
+  width: fit-content;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+
+.highlight-card:hover {
+  background: #1565c0;
+}
+
+/* Footer */
+footer {
+  margin-top: 40px;
+  font-size: 14px;
+  color: #666;
+}
+
+footer a {
+  color: #1e88e5;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
