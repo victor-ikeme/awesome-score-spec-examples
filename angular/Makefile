@@ -11,7 +11,7 @@ help:
 .PHONY: .FORCE
 .FORCE:
 
-WORKLOAD_NAME = aspnet-demo
+WORKLOAD_NAME = angular-demo
 CONTAINER_NAME = web
 CONTAINER_IMAGE = ${WORKLOAD_NAME}:test
 
@@ -20,10 +20,10 @@ CONTAINER_IMAGE = ${WORKLOAD_NAME}:test
 		--no-sample \
 		--provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/dns/score-compose/10-dns-with-url.provisioners.yaml
 
-compose.yaml: web/score.yaml .score-compose/state.yaml Makefile
-	score-compose generate web/score.yaml \
-		--build '${CONTAINER_NAME}={"context":"app/aspnetapp","tags":["${CONTAINER_IMAGE}"]}' \
-		--publish 80:${WORKLOAD_NAME}:80
+compose.yaml: score.yaml .score-compose/state.yaml Makefile
+	score-compose generate score.yaml \
+		--build '${CONTAINER_NAME}={"context":"app","tags":["${CONTAINER_IMAGE}"]}' \
+		--publish 4200:${WORKLOAD_NAME}:4200
 
 ## Generate a compose.yaml file from the score spec and launch it.
 .PHONY: compose-up
@@ -48,8 +48,8 @@ compose-down:
         --patch-templates https://raw.githubusercontent.com/score-spec/community-patchers/refs/heads/main/score-k8s/service-account.tpl
 
 
-manifests.yaml: web/score.yaml .score-k8s/state.yaml Makefile
-	score-k8s generate web/score.yaml \
+manifests.yaml: score.yaml .score-k8s/state.yaml Makefile
+	score-k8s generate score.yaml \
 		--image ${CONTAINER_IMAGE}
 
 ## Create a local Kind cluster.
