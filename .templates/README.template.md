@@ -1,6 +1,6 @@
-# Abc — Score.dev Workload Example
+# {{ workload_name | title }} — Score.dev Workload Example
 
-This project demonstrates how to deploy the `abc` workload using [Score.dev](https://score.dev), via:
+This project demonstrates how to deploy the `{{ workload_name }}` workload using [Score.dev](https://score.dev), via:
 
 - `score-compose` (Docker Compose for local dev)
 - `score-k8s` (Kubernetes deployment via Kind cluster)
@@ -12,8 +12,8 @@ Run the steps manually or use the Makefile-based shortcuts provided.
 ## 📁 Project Structure
 
 ```
-abc/
-├── /                  # App source (Dockerfile lives here)
+{{ workload_name }}/
+├── {{ app_dir }}/                  # App source (Dockerfile lives here)
 ├── score/
 │   └── score.yaml                 # Workload spec (Score.dev)
 ├── manifests.yaml                 # Kubernetes manifest (generated)
@@ -43,7 +43,7 @@ Ensure the following tools are installed:
 ### ✅ 1. Build the container image
 
 ```bash
-docker build -t  ./
+docker build -t {{ image_tag }} ./{{ app_dir }}
 ```
 
 ---
@@ -53,16 +53,16 @@ docker build -t  ./
 #### a. Initialize score-compose
 
 ```bash
-score-compose init --no-sample \
-  --provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/dns/score-compose/10-dns-with-url.provisioners.yaml
+score-compose init --no-sample {% if dns_enabled %}\
+  --provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/dns/score-compose/10-dns-with-url.provisioners.yaml{% endif %}
 ```
 
 #### b. Generate Docker Compose file
 
 ```bash
 score-compose generate score/score.yaml \
-  --build '={"context":"","tags":[""]}' \
-  --publish 4200:abc:4200
+  --build '{{ container_name }}={"context":"{{ app_dir }}","tags":["{{ image_tag }}"]}' {% if dns_enabled %}\
+  --publish {{ port }}:{{ workload_name }}:{{ port }}{% endif %}
 ```
 
 #### c. Launch app locally
@@ -73,11 +73,15 @@ docker compose up --build -d
 
 #### d. Test
 
-
+{% if dns_enabled %}
 ```bash
-score-compose resources get-outputs dns.default#abc.dns --format '{{ .host }}'
+score-compose resources get-outputs dns.default#{{ workload_name }}.dns --format '{{ '{{ .host }}' }}'
 ```
-
+{% else %}
+```bash
+curl http://localhost:{{ port }}
+```
+{% endif %}
 
 ---
 
@@ -86,15 +90,15 @@ score-compose resources get-outputs dns.default#abc.dns --format '{{ .host }}'
 #### a. Initialize score-k8s
 
 ```bash
-score-k8s init --no-sample \
-  --provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/dns/score-k8s/10-dns-with-url.provisioners.yaml
+score-k8s init --no-sample {% if dns_enabled %}\
+  --provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/dns/score-k8s/10-dns-with-url.provisioners.yaml{% endif %}
 ```
 
 #### b. Generate manifests
 
 ```bash
 score-k8s generate score/score.yaml \
-  --image 
+  --image {{ image_tag }}
 ```
 
 #### c. Setup Kind cluster (if needed)
@@ -106,7 +110,7 @@ score-k8s generate score/score.yaml \
 #### d. Load image into Kind
 
 ```bash
-kind load docker-image 
+kind load docker-image {{ image_tag }}
 ```
 
 #### e. Deploy to Kubernetes
@@ -117,11 +121,16 @@ kubectl apply -f manifests.yaml
 
 #### f. Test
 
-
+{% if dns_enabled %}
 ```bash
-score-k8s resources get-outputs dns.default#abc.dns --format '{{ .host }}'
+score-k8s resources get-outputs dns.default#{{ workload_name }}.dns --format '{{ '{{ .host }}' }}'
 ```
-
+{% else %}
+```bash
+kubectl port-forward svc/{{ workload_name }} {{ port }}:{{ port }}
+```
+Open `http://localhost:{{ port }}` in your browser.
+{% endif %}
 
 ---
 
@@ -132,7 +141,7 @@ This project includes a [Makefile](./Makefile) that automates the above steps.
 ### 🔨 Local Dev with Docker Compose
 
 ```bash
-make compose-up COMPOSE_PUBLISH=True DNS_ENABLED=True
+make compose-up COMPOSE_PUBLISH={{ dns_enabled }} DNS_ENABLED={{ dns_enabled }}
 ```
 
 ### 🔍 View logs
@@ -154,13 +163,13 @@ make compose-down
 ```bash
 make kind-create-cluster
 make kind-load-image
-make k8s-up DNS_ENABLED=True USE_PATCHES=true
+make k8s-up DNS_ENABLED={{ dns_enabled }} USE_PATCHES=true
 ```
 
 ### 🔁 Test DNS or port-forward
 
 ```bash
-make k8s-test DNS_ENABLED=True
+make k8s-test DNS_ENABLED={{ dns_enabled }}
 ```
 
 ### 📜 View k8s logs

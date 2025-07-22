@@ -1,0 +1,6 @@
+.templates/.venv/'
+./templates
+.venv
+requirements.txt
+Makefile
+scripts/
