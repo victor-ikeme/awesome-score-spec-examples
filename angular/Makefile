@@ -20,8 +20,8 @@ CONTAINER_IMAGE = ${WORKLOAD_NAME}:test
 		--no-sample \
 		--provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/dns/score-compose/10-dns-with-url.provisioners.yaml
 
-compose.yaml: score.yaml .score-compose/state.yaml Makefile
-	score-compose generate score.yaml \
+compose.yaml: score/score.yaml .score-compose/state.yaml Makefile
+	score-compose generate score/score.yaml \
 		--build '${CONTAINER_NAME}={"context":"app","tags":["${CONTAINER_IMAGE}"]}' \
 		--publish 4200:${WORKLOAD_NAME}:4200
 
@@ -44,12 +44,12 @@ compose-down:
 .score-k8s/state.yaml:
 	score-k8s init \
 		--no-sample \
-		--patch-templates https://raw.githubusercontent.com/score-spec/community-patchers/refs/heads/main/score-k8s/unprivileged.tpl \
-        --patch-templates https://raw.githubusercontent.com/score-spec/community-patchers/refs/heads/main/score-k8s/service-account.tpl
+    	--provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/dns/score-k8s/10-dns-with-url.provisioners.yaml
 
 
-manifests.yaml: score.yaml .score-k8s/state.yaml Makefile
-	score-k8s generate score.yaml \
+
+manifests.yaml: score/score.yaml .score-k8s/state.yaml Makefile
+	score-k8s generate score/score.yaml \
 		--image ${CONTAINER_IMAGE}
 
 ## Create a local Kind cluster.
@@ -81,17 +81,3 @@ k8s-down:
 	kubectl delete \
 		-f manifests.yaml \
 		-n ${NAMESPACE}
-
-## Generate catalog-info.yaml for Backstage.
-.PHONY: generate-catalog-info
-generate-catalog-info:
-	score-k8s init \
-		--no-sample \
-		--patch-templates https://raw.githubusercontent.com/score-spec/community-patchers/refs/heads/main/score-k8s/backstage-catalog-entities.tpl
-	score-k8s generate \
-		--namespace sail-sharp \
-		--generate-namespace \
-		--image ghcr.io/mathieu-benoit/my-sample-workload:latest \
-		score/score.yaml \
-		--output catalog-info.yaml
-	sed 's,$$GITHUB_REPO,mathieu-benoit/sail-sharp,g' -i catalog-info.yaml
