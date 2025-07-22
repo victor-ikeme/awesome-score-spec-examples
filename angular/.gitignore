@@ -3,3 +3,9 @@
 .score-k8s/
 compose.yaml
 manifests.yaml
+
+# Ignore Score files
+.score-compose/
+.score-k8s/
+compose.yaml
+manifests.yaml
