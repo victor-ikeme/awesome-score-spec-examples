@@ -1,0 +1,116 @@
+workloads:
+  angular-demo:
+    spec:
+      apiVersion: score.dev/v1b1
+      containers:
+        web:
+          args:
+            - ng
+            - serve
+            - --host
+            - 0.0.0.0
+            - --disable-host-check
+            - --port
+            - "4200"
+          image: .
+          volumes:
+            /angular/project:
+              source: ${resources.project-source}
+            /angular/project/node_modules:
+              source: ${resources.node-modules-cache}
+      metadata:
+        name: angular-demo
+      resources:
+        dns:
+          type: dns
+        node-modules-cache:
+          type: volume
+        project-source:
+          type: volume
+        route:
+          params:
+            host: ${resources.dns.host}
+            path: /
+            port: 4200
+          type: route
+      service:
+        ports:
+          tcp:
+            port: 4200
+            targetPort: 4200
+    file: score.yaml
+    build_configs:
+      web:
+        context: app
+        tags:
+          - angular-demo:test
+resources:
+  dns.default#angular-demo.dns:
+    guid: c01659b2-8378-4a6d-80af-6f6564b3cfb4
+    type: dns
+    class: default
+    id: angular-demo.dns
+    metadata: {}
+    params: {}
+    source_workload: angular-demo
+    provisioner: template://community-provisioners/dns-with-route
+    state:
+      instanceHostname: dnsnsp45x.localhost
+    outputs:
+      host: dnsnsp45x.localhost
+      url: http://dnsnsp45x.localhost:8080
+  route.default#angular-demo.route:
+    guid: 85d660a5-f982-42b5-f3fc-7b9846ce0098
+    type: route
+    class: default
+    id: angular-demo.route
+    metadata: {}
+    params:
+      host: ${resources.dns.host}
+      path: /
+      port: 4200
+    source_workload: angular-demo
+    provisioner: template://default-provisioners/route
+    state: {}
+  volume.default#angular-demo.node-modules-cache:
+    guid: 31412bfa-89fd-472f-0d29-34d782efbcb9
+    type: volume
+    class: default
+    id: angular-demo.node-modules-cache
+    metadata: {}
+    params: {}
+    source_workload: angular-demo
+    provisioner: template://default-provisioners/volume
+    state:
+      name: angular-demo-node-modules-cache-BwLpZa
+    outputs:
+      source: angular-demo-node-modules-cache-BwLpZa
+      type: volume
+  volume.default#angular-demo.project-source:
+    guid: fa017dec-632d-44fa-4e86-45068ae8eba0
+    type: volume
+    class: default
+    id: angular-demo.project-source
+    metadata: {}
+    params: {}
+    source_workload: angular-demo
+    provisioner: template://default-provisioners/volume
+    state:
+      name: angular-demo-project-source-7iylYD
+    outputs:
+      source: angular-demo-project-source-7iylYD
+      type: volume
+shared_state:
+  default-provisioners-routing-instance:
+    hosts:
+      dnsnsp45x.localhost:
+        route.default#angular-demo.route:
+          path: /
+          path_type: Prefix
+          port: 4200
+          target: angular-demo:4200
+    instancePort: 8080
+    instanceServiceName: routing-n3LoM4
+compose_project: angular
+mounts_directory: .score-compose/mounts
+patching_templates: []

@@ -1,0 +1,61 @@
+name: angular
+services:
+    angular-demo-web:
+        annotations:
+            compose.score.dev/workload-name: angular-demo
+        build:
+            context: app
+            tags:
+                - angular-demo:test
+        command:
+            - ng
+            - serve
+            - --host
+            - 0.0.0.0
+            - --disable-host-check
+            - --port
+            - "4200"
+        depends_on:
+            wait-for-resources:
+                condition: service_completed_successfully
+                required: true
+        hostname: angular-demo
+        ports:
+            - target: 4200
+              published: "4200"
+        volumes:
+            - type: volume
+              source: angular-demo-node-modules-cache-BwLpZa
+              target: /angular/project/node_modules
+            - type: volume
+              source: angular-demo-project-source-7iylYD
+              target: /angular/project
+    routing-n3LoM4:
+        image: mirror.gcr.io/nginx:1-alpine
+        ports:
+            - target: 80
+              published: "8080"
+        restart: always
+        volumes:
+            - type: bind
+              source: .score-compose/mounts/routing-n3LoM4/nginx.conf
+              target: /etc/nginx/nginx.conf
+    wait-for-resources:
+        command:
+            - echo
+        depends_on:
+            routing-n3LoM4:
+                condition: service_started
+                required: true
+        image: alpine
+volumes:
+    angular-demo-node-modules-cache-BwLpZa:
+        name: angular-demo-node-modules-cache-BwLpZa
+        driver: local
+        labels:
+            dev.score.compose.res.uid: volume.default#angular-demo.node-modules-cache
+    angular-demo-project-source-7iylYD:
+        name: angular-demo-project-source-7iylYD
+        driver: local
+        labels:
+            dev.score.compose.res.uid: volume.default#angular-demo.project-source
