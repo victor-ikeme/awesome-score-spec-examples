@@ -1,8 +1,0 @@
-# project.meta.yaml
-workload_name: angular-demo
-description: Demo Angular app using Score.dev and platform engineering tools.
-port: 4200
-dns_enabled: true
-microservices: false
-image: angular-demo:test
-build_context: app

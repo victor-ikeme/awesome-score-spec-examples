@@ -1,6 +1,16 @@
+#Ignore core files
+
 .templates/.venv/'
-./templates
 .venv
 requirements.txt
 Makefile
-scripts/
+setup-scripts/
+project.meta.yaml
+.templates
+.envrc
+
+# Ignore Score outputs
+.score-compose/
+.score-k8s/
+compose.yaml
+manifests.yaml
