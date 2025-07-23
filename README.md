@@ -37,6 +37,8 @@ If you're building Internal Developer Platforms, experimenting with `score.yaml`
 
 Each folder is a standalone Score workload example and includes:
 
+---
+
 your-project/
 ├── score/                # Score spec + variants
 │   └── score.yaml
