@@ -61,8 +61,8 @@ score-compose init --no-sample \
 
 ```bash
 score-compose generate score/score.yaml \
-  --build '={"context":"","tags":[""]}' \
-  --publish 4200:angular:4200
+  --build 'web={"context":"app","tags":["angular:local"]}' \
+  --publish 4200:angular-web:4200
 ```
 
 #### c. Launch app locally
