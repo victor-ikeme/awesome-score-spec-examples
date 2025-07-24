@@ -12,7 +12,7 @@ Each example in this repository is structured to be deployable using:
 
 ## 🎯 Why This Repo Exists
 
-As a platform engineer, I wanted to:
+As a platform engineer and Platform Engineering University Alumni, I wanted to:
 
 - Collect and standardize repeatable Score-based workload patterns
 - Showcase how platform tooling can be simple, clean, and declarative

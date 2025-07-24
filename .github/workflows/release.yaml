@@ -9,8 +9,7 @@ on:
       - 'v*'
 env:
   IMAGE_TAG: ${{ github.ref_name }}
-  FRONTEND_IMAGE_NAME: backstage-frontend
-  BACKEND_IMAGE_NAME: backstage-backend
+  IMAGE_NAME: angular-web
 jobs:
   build-push:
     runs-on: ubuntu-24.04
@@ -27,19 +26,11 @@ jobs:
               ghcr.io \
               -u $ \
               --password-stdin
-      - name: build and push backend container image
+      - name: build and push {{ env.IMAGE_NAME }} container image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: app
           platforms: linux/amd64,linux/arm64
-          file: Dockerfile
+          file: app/Dockerfile
           push: true
-          tags: "ghcr.io/${{ github.repository_owner }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }},ghcr.io/${{ github.repository_owner }}/${{ env.BACKEND_IMAGE_NAME }}:latest"
-      - name: build and push frontend container image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64
-          file: Dockerfile.frontend
-          push: true
-          tags: "ghcr.io/${{ github.repository_owner }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }},ghcr.io/${{ github.repository_owner }}/${{ env.FRONTEND_IMAGE_NAME }}:latest"
+          tags: "ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }},ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest"
