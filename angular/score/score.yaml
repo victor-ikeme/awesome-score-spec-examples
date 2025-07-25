@@ -1,6 +1,6 @@
 apiVersion: score.dev/v1b1
 metadata:
-  name: angular-web
+  name: angular
 containers:
   web:
     image: .

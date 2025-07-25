@@ -12,8 +12,9 @@ Each example in this repository is structured to be deployable using:
 
 ## 🎯 Why This Repo Exists
 
-As a platform engineer and Platform Engineering University Alumni, I wanted to:
+As a platform engineer and a [Platform Engineering Unversity](https://university.platformengineering.org/) Alumni, I wanted to:
 
+- Help both those who are transitioning into Platform Engineering have resources and guide i wish i had during my time.
 - Collect and standardize repeatable Score-based workload patterns
 - Showcase how platform tooling can be simple, clean, and declarative
 - Teach others to build and deploy applications faster using Score
@@ -25,9 +26,10 @@ If you're building Internal Developer Platforms, experimenting with `score.yaml`
 ## 🤝 Who This Repo Is For
 
 - **Platform Engineers**: Explore patterns for consistent workload delivery
+- **PEU Students and Enthusiasts**: 
 - **DevOps Professionals**: Standardize dev-to-prod transitions using Score abstractions
 - **Application Developers**: Simplify deployments without worrying about environments
-- **Beginners / Students**: Learn real infrastructure-as-code with simple, clean examples
+- **Beginners /Intermediates**: Learn real infrastructure-as-code with simple, clean examples
 
 > 🧑‍💻 Maintained by [Victor Ikeme](https://cloudikeme.com) — platform engineer & open source contributor to the [Score.dev](https://score.dev) community.
 

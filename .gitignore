@@ -8,6 +8,7 @@ setup-scripts/
 project.meta.yaml
 .templates
 .envrc
+all-blog-posts/
 
 # Ignore Score outputs
 .score-compose/
