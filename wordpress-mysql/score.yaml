@@ -4,8 +4,6 @@ metadata:
 containers:
   wordpress:
     image: .
-    args:
-      - --default-authentication-plugin=mysql_native_password
     variables:
       WORDPRESS_DB_HOST: ${resources.db.host}
       WORDPRESS_DB_USER: ${resources.db.username}
@@ -14,8 +12,16 @@ containers:
 service:
   ports:
     tcp:
-      port: 80
-      targetPort: 8080
+      port: 8080
+      targetPort: 80
 resources:
   db:
     type: mysql
+  dns:
+    type: dns
+  route:
+    type: route
+    params:
+      host: ${resources.dns.host}
+      path: /
+      port: 8080
