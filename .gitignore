@@ -1,0 +1,19 @@
+# Ignore core project files
+.envrc
+.venv/
+.templates/
+.templates/.venv/
+requirements.txt
+Makefile
+setup-scripts/
+project.meta.yaml
+all-blog-posts/
+blog.md
+blog-templates/
+
+# Ignore Score build outputs
+.score-compose/
+.score-k8s/
+compose.yaml
+manifests.yaml
+zz-awesome-compose/
