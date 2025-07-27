@@ -1,0 +1,41 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: wordpress-db
+containers:
+  backend:
+    image: .
+    args: ["--default-authentication-plugin=mysql_native_password"]
+    variables:
+      MYSQL_ROOT_PASSWORD: ${resources.mariadb.password}
+      MYSQL_DATABASE: ${resources.mariadb.host}
+      MYSQL_USER: ${resources.mariadb.username}
+      MYSQL_PASSWORD: ${resources.mariadb.password}
+    livenessProbe:
+      httpGet:
+        path: /.backstage/health/v1/liveness
+        port: 3306
+    readinessProbe:
+      httpGet:
+        path: /.backstage/health/v1/readiness
+        port: 3306
+    volumes:
+      - source: ${resources.db-data}
+        target: /var/lib/mysql
+service:
+  ports:
+    tcp:
+      port: 3306
+      targetPort: 33060
+resources:
+  mariadb:
+    type: 
+  db-data:
+    type: volume
+  dns:
+    type: dns
+  route:
+    type: route
+    params:
+      host: ${resources.dns.host}
+      path: /
+      port: 3306

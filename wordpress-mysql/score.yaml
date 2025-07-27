@@ -1,0 +1,19 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: wordpress
+containers:
+  wordpress:
+    image: .
+    variables:
+      WORDPRESS_DB_HOST: ${resources.db.host}
+      WORDPRESS_DB_USER: ${resources.db.username}
+      WORDPRESS_DB_PASSWORD: ${resources.db.password}
+      WORDPRESS_DB_NAME: ${resources.db.name}
+service:
+  ports:
+    tcp:
+      port: 80
+      targetPort: 8080
+resources:
+  db:
+    type: mysql
