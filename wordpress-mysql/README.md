@@ -1,4 +1,4 @@
-# 📦 WORDPRESS-MYSQL — Deploy with Docker, Kubernetes & Score
+# 📦 Wordpress-Mysql Score Demo — Deploy with Score
 
 This project is part of the [**Awesome Score Spec Examples**](https://github.com/victor-ikeme/awesome-score-spec-examples) — a curated collection of over **50 real-world Score-based applications** and deployment setups.
 
@@ -182,23 +182,3 @@ Maintained with ❤️ by [@victor-ikeme](https://github.com/victor-ikeme) as pa
 ## 📄 License
 
 MIT License • See [LICENSE](../LICENSE)
-
-```
-
----
-
-### ✅ How to Use This Template
-
-For each subproject (like `angular`, `express-api`, `fastify-server`, etc.):
-
-1. **Copy-paste this template** into `README.md` inside the subfolder.
-2. Replace placeholders:
-   - `<PROJECT-NAME>` → `Angular`, `Express API`, etc.
-   - `<PROJECT_FOLDER>` → `angular`, `express`, etc.
-   - `<INSERT_BLOG_POST_URL_HERE>` → Link to the specific blog post
-   - `<your-image>` → Docker image if available
-
----
-
-Would you like me to generate README files for other folders in the repo based on this template? Just give me the folder names and blog URLs!
-```
