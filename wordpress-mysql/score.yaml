@@ -4,6 +4,8 @@ metadata:
 containers:
   wordpress:
     image: .
+    args:
+      - --default-authentication-plugin=mysql_native_password
     variables:
       WORDPRESS_DB_HOST: ${resources.db.host}
       WORDPRESS_DB_USER: ${resources.db.username}
