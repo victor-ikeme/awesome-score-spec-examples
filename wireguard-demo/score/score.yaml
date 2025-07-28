@@ -1,24 +1,41 @@
+# score.yaml
 apiVersion: score.dev/v1b1
 metadata:
-  name: angular-demo
-containers:
-  web:
-    image: .
-    args: ["ng", "serve", "--host", "0.0.0.0", "--disable-host-check", "--port", "4200"]
-    volumes:
-      - source: ${resources.project-source}
-        target: /angular/project
-      - source: ${resources.node-modules-cache}
-        target: /angular/project/node_modules
+  name: wireguard
+  annotations:
+    awesome-score-spec.dev/description: "A WireGuard VPN server workload."
 service:
   ports:
-    tcp:
-      port: 4200
-      targetPort: 4200
+    # Exposes the WireGuard VPN port using the UDP protocol
+    wireguard:
+      port: 8080
+      targetPort: 51820
+      protocol: UDP
+containers:
+  wireguard:
+    image: linuxserver/wireguard
+    variables:
+      # PUID/PGID are common for linuxserver.io images
+      PUID: "1000"
+      PGID: "1000"
+      # Configuration is sourced from the environment for portability
+      TZ: ${resources.env.TIMEZONE}
+      SERVERURL: ${resources.env.VPN_SERVER_URL}
+      SERVERPORT: "51820"
+      PEERS: "1"
+      PEERDNS: "auto"
+      INTERNAL_SUBNET: "10.13.13.0"
+      ALLOWEDIPS: "0.0.0.0/0"
+    # The container mounts the persistent volume for its configuration
+    volumes:
+      /config:
+        source: ${resources.wireguard-config}
 resources:
-  project-source:
-    type: volume
-  node-modules-cache:
+  # Declares that some configuration will be provided by the runtime environment
+  env:
+    type: environment
+  # Declares the need for a persistent volume for the WireGuard configuration
+  wireguard-config:
     type: volume
   dns:
     type: dns
@@ -27,4 +44,5 @@ resources:
     params:
       host: ${resources.dns.host}
       path: /
-      port: 4200
+      port: 8080
+  
