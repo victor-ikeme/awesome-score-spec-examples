@@ -13,8 +13,8 @@ containers:
 service:
   ports:
     tcp:
-      port: 4200
-      targetPort: 4200
+      port: 8080
+      targetPort: 8080
 resources:
   project-source:
     type: volume
@@ -27,4 +27,4 @@ resources:
     params:
       host: ${resources.dns.host}
       path: /
-      port: 4200
+      port: 8080
