@@ -6,17 +6,17 @@ containers:
     image: .
     args: ["ng", "serve", "--host", "0.0.0.0", "--disable-host-check", "--port", "4200"]
     volumes:
-      - source: ${resources.project-source}
-        target: /angular/project
-      - source: ${resources.node-modules-cache}
-        target: /angular/project/node_modules
+      /project:
+        source: ${resources.app-source}
+      /project/node_modules:
+        source: ${resources.node-modules-cache}
 service:
   ports:
     tcp:
       port: 8080
       targetPort: 8080
 resources:
-  project-source:
+  app-source:
     type: volume
   node-modules-cache:
     type: volume
