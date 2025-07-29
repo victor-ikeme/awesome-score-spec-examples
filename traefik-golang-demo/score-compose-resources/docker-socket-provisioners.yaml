@@ -1,0 +1,12 @@
+# docker-socket.provisioner.yaml
+---
+# This defines a new resource provisioner for score-compose.
+# It tells score-compose how to handle a new resource type.
+- uri: template://custom-docker-socket-bind
+  # This is the new resource type that developers will use in score.yaml
+  type: docker-socket-bind
+  # This Go template defines the YAML that score-compose will use
+  # for the volume when this resource type is requested.
+  outputs: |
+    type: bind
+    source: /var/run/docker.sock

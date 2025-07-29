@@ -1,0 +1,11 @@
+# score.go-backend.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: go-backend
+  annotations:
+    traefik.enable: "true"
+    traefik.http.routers.go.rule: "Path(`/`)"
+    traefik.http.services.go.loadbalancer.server.port: "80"
+containers:
+  backend:
+    image: .

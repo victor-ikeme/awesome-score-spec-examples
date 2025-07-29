@@ -1,0 +1,28 @@
+# score.traefik-golang.yaml (Final, using the provisioner)
+apiVersion: score.dev/v1b1
+metadata:
+  name: traefik-golang
+  annotations:
+    awesome-score-spec.dev/description: "A Traefik reverse proxy that uses Docker for service discovery."
+service:
+  ports:
+    http:
+      port: 80
+      targetPort: 80
+containers:
+  frontend:
+    image: traefik:2.6
+    args:
+      - "--providers.docker"
+      - "--entrypoints.web.address=:80"
+      - "--providers.docker.exposedbydefault=false"
+    volumes:
+      /var/run/docker.sock:
+        source: ${resources.docker-socket}
+resources:
+  # THIS IS THE CRITICAL CHANGE
+  # Instead of asking for a generic 'volume', we ask for our specific type.
+  docker-socket:
+    type: docker-socket-bind # <-- Use the new type here
+  go-backend:
+    type: service
