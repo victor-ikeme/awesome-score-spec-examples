@@ -1,25 +1,15 @@
 apiVersion: score.dev/v1b1
 metadata:
-  name: angular-demo
+  name: sparkjava
 containers:
   web:
     image: .
-    args: ["ng", "serve", "--host", "0.0.0.0", "--disable-host-check", "--port", "4200"]
-    volumes:
-      - source: ${resources.project-source}
-        target: /angular/project
-      - source: ${resources.node-modules-cache}
-        target: /angular/project/node_modules
 service:
   ports:
     tcp:
-      port: 4200
-      targetPort: 4200
+      port: 8080
+      targetPort: 8080
 resources:
-  project-source:
-    type: volume
-  node-modules-cache:
-    type: volume
   dns:
     type: dns
   route:
@@ -27,4 +17,4 @@ resources:
     params:
       host: ${resources.dns.host}
       path: /
-      port: 4200
+      port: 8080
