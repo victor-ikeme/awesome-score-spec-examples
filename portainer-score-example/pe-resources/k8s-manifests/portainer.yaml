@@ -1,0 +1,91 @@
+# portainer.yaml
+
+# Create a dedicated namespace for Portainer for better organization
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: portainer
+---
+# Define a PersistentVolumeClaim to request durable storage for Portainer's data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: portainer-data-pvc
+  namespace: portainer
+spec:
+  # 'ReadWriteOnce' means the volume can be mounted by a single node
+  accessModes:
+    - ReadWriteOnce
+  # Request 2 Gibibytes of storage for the Portainer database and config
+  resources:
+    requests:
+      storage: 2Gi
+---
+# Define the Kubernetes Service to expose Portainer's web UI
+apiVersion: v1
+kind: Service
+metadata:
+  name: portainer-service
+  namespace: portainer
+spec:
+  # This selector ensures the Service routes traffic to Pods with the 'app: portainer' label
+  selector:
+    app: portainer
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000
+  # 'NodePort' exposes the service on a static port on each node's IP.
+  # For cloud environments, you might change this to 'LoadBalancer'.
+  type: NodePort
+---
+# Define the Deployment to manage the Portainer Pod
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portainer-deployment
+  namespace: portainer
+  labels:
+    app: portainer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portainer
+  template:
+    metadata:
+      labels:
+        app: portainer
+    spec:
+      containers:
+        - name: portainer
+          image: portainer/portainer-ce:alpine
+          # The 'command' from docker-compose becomes 'args' here because the image
+          # already has an ENTRYPOINT. These are the arguments passed to it.
+          args:
+            - "-H"
+            - "unix:///var/run/docker.sock"
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            # Mount the persistent volume for Portainer's data
+            - name: portainer-data
+              mountPath: /data
+            # Mount the host's Docker socket into the container
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+      volumes:
+        # Define the persistent volume using the PVC created above
+        - name: portainer-data
+          persistentVolumeClaim:
+            claimName: portainer-data-pvc
+        # ===================================================================
+        #  WARNING: Privileged Operation
+        # ===================================================================
+        # Define the hostPath volume to access the node's Docker socket.
+        # This is a privileged operation and may be blocked by security policies
+        # on managed Kubernetes clusters (GKE, EKS, AKS).
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket

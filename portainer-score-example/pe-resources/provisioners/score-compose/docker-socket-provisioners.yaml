@@ -1,0 +1,9 @@
+- uri: template://custom-docker-socket-bind
+  # This is the new resource type that developers will use in score.yaml.
+  type: docker-socket-bind
+  # This Go template defines the YAML that score-compose will use for the
+  # 'source' of a volume mount when this resource type is requested.
+  # The output here will completely define the volume in the compose file.
+  outputs: |
+    type: bind
+    source: /var/run/docker.sock
