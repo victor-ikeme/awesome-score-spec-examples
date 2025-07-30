@@ -1,20 +1,30 @@
-# Ignore core project files
+# ────────────────────────────────
+# 🛠️ Core Project & Build Artifacts
+# ────────────────────────────────
+.env
 .envrc
 .venv/
 .templates/
 .templates/.venv/
+project.meta.yml
 requirements.txt
 Makefile
 setup-scripts/
-project.meta.yaml
+NOTES.md
+**/project.meta.yml
+
+# ────────────────────────────────
+# 🗃️ Static Content and Blog Artifacts
+# ────────────────────────────────
 all-blog-posts/
 blog.md
 blog-templates/
 
-# Ignore Score build outputs
+# ────────────────────────────────
+# ⚙️ Score Build Outputs (Local/Runtime)
+# ────────────────────────────────
 .score-compose/
 .score-k8s/
 compose.yaml
 manifests.yaml
 zz-awesome-compose/
-NOTES.md

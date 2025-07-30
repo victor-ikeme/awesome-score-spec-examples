@@ -3,4 +3,4 @@
 .score-k8s/
 compose.yaml
 manifests.yaml
-project.meta.yaml
+project.meta.yml
