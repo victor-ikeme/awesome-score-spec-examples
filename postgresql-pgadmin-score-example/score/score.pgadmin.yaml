@@ -1,0 +1,32 @@
+# score.pgadmin.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: pgadmin-ui-service
+  annotations:
+    awesome-score-spec.dev/description: "A pgAdmin web UI for managing a PostgreSQL database."
+service:
+  # This is the main, public-facing port for the pgAdmin web UI
+  ports:
+    http:
+      port: 5050
+      targetPort: 80
+containers:
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    variables:
+      # The admin credentials for the pgAdmin tool are sourced from the environment
+      PGADMIN_DEFAULT_EMAIL: ${resources.env.PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${resources.env.PGADMIN_PASSWORD}
+    readinessProbe:
+      httpGet:
+        # pgAdmin doesn't have a simple health endpoint, so we check the login page
+        path: /login
+        port: 80
+resources:
+  # Declares a dependency on the PostgreSQL workload
+  database:
+    type: service
+    class: postgres-db-service
+  # Declares that its own credentials will be provided by the environment
+  env:
+    type: environment
