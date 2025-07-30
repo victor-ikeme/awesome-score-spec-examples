@@ -2,6 +2,7 @@
 
 Welcome to **Awesome Score Spec Examples** — a curated, ever-growing collection of real-world `score.yaml` workload specifications that demonstrate the power and flexibility of [Score.dev](https://score.dev) across use cases, stacks, and deployment targets.
 
+All examples are located in the `examples` directory.
 Each example in this repository is structured to be deployable using:
 
 - 🐳 [`score-compose`](https://github.com/score-spec/score-compose) (local Docker)
