@@ -1,0 +1,63 @@
+# score.pihole.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: pihole-server
+  annotations:
+    awesome-score-spec.dev/description: "A Pi-hole ad-blocking DNS server."
+service:
+  ports:
+    dns-tcp:
+      port: 53
+      targetPort: 53
+      protocol: TCP
+    dns-udp:
+      port: 53
+      targetPort: 53
+      protocol: UDP
+    dhcp:
+      port: 67
+      targetPort: 67
+      protocol: UDP
+    web-http:
+      port: 8080
+      targetPort: 80
+      protocol: TCP
+    web-https:
+      port: 8443
+      targetPort: 443
+      protocol: TCP
+containers:
+  pihole:
+    image: pihole/pihole:latest
+    variables:
+      TZ: ${resources.env.TIMEZONE}
+      # The PIHOLE_DNS_ variable uses the service name from the resource dependency.
+      # score-compose will resolve this to the static IP defined in the patch.
+      PIHOLE_DNS_: "${resources.cloudflared.name}#5054"
+      WEBPASSWORD: ${resources.env.PIHOLE_PW}
+      # Reverse DNS settings are sourced from the environment
+      REV_SERVER: "true"
+      REV_SERVER_TARGET: ${resources.env.PIHOLE_ROUTER_IP}
+      REV_SERVER_DOMAIN: ${resources.env.PIHOLE_NETWORK_DOMAIN}
+      REV_SERVER_CIDR: ${resources.env.PIHOLE_REVERSE_DNS}
+      # Server IP settings are sourced from the environment
+      ServerIP: ${resources.env.PIHOLE_HOST_IP}
+      ServerIPv6: ${resources.env.PIHOLE_HOST_IPV6}
+    volumes:
+      /etc/pihole:
+        source: ${resources.pihole-config}
+      /etc/dnsmasq.d:
+        source: ${resources.dnsmasq-config}
+resources:
+  # Declares the formal dependency on the Cloudflared workload
+  cloudflared:
+    type: service
+    class: cloudflared-dns
+  # Declares that configuration will be provided by the runtime environment
+  env:
+    type: environment
+  # Declares the persistent volumes for Pi-hole configuration
+  pihole-config:
+    type: volume
+  dnsmasq-config:
+    type: volume
