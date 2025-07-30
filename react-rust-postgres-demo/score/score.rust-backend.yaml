@@ -1,0 +1,41 @@
+# score.rust-backend.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: rust-backend-service
+  annotations:
+    awesome-score-spec.dev/description: "A Rust backend API that connects to a PostgreSQL database."
+service:
+  # This internal port is used by the React frontend
+  ports:
+    http:
+      port: 8000
+      targetPort: 8000
+containers:
+  backend:
+    image: react-rust-demo-backend:latest
+    variables:
+      ADDRESS: "0.0.0.0:8000"
+      RUST_LOG: "debug"
+      PG_DBNAME: "postgres"
+      PG_USER: "postgres"
+      PG_HOST: ${resources.database.name}
+      PG_PASSWORD: ${resources.env.DB_PASSWORD}
+    volumes:
+      # Volume for local development and live-reloading
+      /code/src:
+        source: ${resources.backend-source}
+      # Volume for caching compiled artifacts
+      /code/target:
+        source: ${resources.backend-cache}
+resources:
+  # Declares the dependency on the database workload
+  database:
+    type: service
+  # Declares the need for secrets/config from the environment
+  env:
+    type: environment
+  # Declares volumes for source code and build cache
+  backend-source:
+    type: volume
+  backend-cache:
+    type: volume

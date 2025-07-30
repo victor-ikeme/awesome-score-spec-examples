@@ -1,0 +1,30 @@
+# score.react-frontend.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: react-frontend-service
+  annotations:
+    awesome-score-spec.dev/description: "A React frontend with a live-reloading development server."
+service:
+  # This is the main, public-facing port for the application
+  ports:
+    http:
+      port: 3000
+      targetPort: 3000
+containers:
+  frontend:
+    image: react-rust-demo-frontend:latest
+    # The React app needs to know the URL of the backend API.
+    # We provide this via an environment variable.
+    variables:
+      REACT_APP_API_URL: "http://${resources.backend.name}:8000"
+    volumes:
+      # Volume for local development and live-reloading
+      /code/src:
+        source: ${resources.frontend-source}
+resources:
+  # Declares the dependency on the backend workload
+  backend:
+    type: service
+  # Declares a volume for the source code
+  frontend-source:
+    type: volume
