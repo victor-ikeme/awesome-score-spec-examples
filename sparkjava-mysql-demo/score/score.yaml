@@ -1,30 +1,36 @@
+# score.yaml
 apiVersion: score.dev/v1b1
 metadata:
-  name: angular-demo
-containers:
-  web:
-    image: .
-    args: ["ng", "serve", "--host", "0.0.0.0", "--disable-host-check", "--port", "4200"]
-    volumes:
-      - source: ${resources.project-source}
-        target: /angular/project
-      - source: ${resources.node-modules-cache}
-        target: /angular/project/node_modules
+  name: sparkjava-mysql
+  annotations:
+    awesome-score-spec.dev/description: "A Java backend with a declaratively provisioned MariaDB database."
 service:
   ports:
-    tcp:
-      port: 4200
-      targetPort: 4200
+    http:
+      port: 8080
+      targetPort: 8080
+containers:
+  backend:
+    image: . # Replace with your actual image name
+    args: ["java", "-jar", "target/app.jar" ]
+    variables:
+      # The backend's connection string is built from the outputs
+      # of the automatically provisioned 'db' resource.
+      DB_URL: "jdbc:mysql://${resources.db.host}:${resources.db.port}/${resources.db.name}"
+      DB_USERNAME: ${resources.db.username}
+      DB_PASSWORD: ${resources.db.password}
+    readinessProbe:
+      httpGet:
+        path: /actuator/health # A standard Java Spring Boot health endpoint
+        port: 8080
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
 resources:
-  project-source:
-    type: volume
-  node-modules-cache:
-    type: volume
-  dns:
-    type: dns
-  route:
-    type: route
-    params:
-      host: ${resources.dns.host}
-      path: /
-      port: 4200
+  # This single resource declaratively requests a MariaDB database.
+  db:
+    type: mysql
