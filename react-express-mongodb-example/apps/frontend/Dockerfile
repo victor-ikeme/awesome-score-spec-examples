@@ -1,21 +1,29 @@
 # syntax=docker/dockerfile:1.4
 
-FROM node:lts AS development
+# Create image based on the official Node image from dockerhub
+FROM node:lts-buster AS development
 
-ENV CI=true
-ENV PORT=3000
+# Create app directory
+WORKDIR /usr/src/app
 
-WORKDIR /code
-COPY package.json /code/package.json
-COPY package-lock.json /code/package-lock.json
+# Copy dependency definitions
+COPY package.json /usr/src/app
+COPY package-lock.json /usr/src/app
+
+# Install dependecies
+#RUN npm set progress=false \
+#    && npm config set depth 0 \
+#    && npm i install
 RUN npm ci
-COPY . /code
 
-CMD [ "npm", "start" ]
+# Get all the code needed to run the app
+COPY . /usr/src/app
 
-FROM development AS builder
+# Expose the port the app runs in
+EXPOSE 3000
 
-RUN npm run build
+# Serve the app
+CMD ["npm", "start"]
 
 FROM development as dev-envs
 RUN <<EOF
@@ -31,7 +39,3 @@ EOF
 # install Docker tools (cli, buildx, compose)
 COPY --from=gloursdocker/docker / /
 CMD [ "npm", "start" ]
-
-FROM nginx:1.13-alpine
-
-COPY --from=builder /code/build /usr/share/nginx/html
