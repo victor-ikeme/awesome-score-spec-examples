@@ -1,0 +1,35 @@
+# score.mariadb-db.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: mariadb-db-service
+  annotations:
+    awesome-score-spec.dev/description: "A standalone MariaDB database service."
+service:
+  # This internal port is used by the Spring Boot backend
+  ports:
+    tcp:
+      port: 3306
+      targetPort: 3306
+containers:
+  db:
+    image: mariadb:10.6.4-focal
+    variables:
+      MYSQL_DATABASE: example
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db-password
+    files:
+      /run/secrets/db-password:
+        content: ${resources.env.DB_PASSWORD}
+        mode: "0400"
+    # The healthcheck is translated into a readinessProbe.
+    # It waits for the DB to report itself as healthy before proceeding.
+    readinessProbe:
+      exec:
+        command: ["mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+    volumes:
+      /var/lib/mysql:
+        source: ${resources.db-data}
+resources:
+  env:
+    type: environment
+  db-data:
+    type: volume

@@ -1,0 +1,35 @@
+# score.spring-backend.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: spring-backend-service
+  annotations:
+    awesome-score-spec.dev/description: "A Spring Boot backend that consumes a MariaDB service."
+service:
+  # This internal port is used by the React frontend
+  ports:
+    http:
+      port: 8080
+      targetPort: 8080
+containers:
+  backend:
+    image: react-spring-demo-backend:latest
+    variables:
+      # The backend gets its DB hostname from the resource dependency.
+      MYSQL_HOST: ${resources.database.name}
+      # The application code would need to read the password from the secret file.
+    files:
+      /run/secrets/db-password:
+        content: ${resources.env.DB_PASSWORD}
+        mode: "0400"
+    readinessProbe:
+      httpGet:
+        path: /actuator/health
+        port: 8080
+resources:
+  # Declares the dependency on the database workload
+  database:
+    type: service
+    class: mariadb-db-service
+  # Declares the need for the password from the environment
+  env:
+    type: environment

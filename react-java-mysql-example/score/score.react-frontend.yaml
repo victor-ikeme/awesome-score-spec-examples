@@ -1,0 +1,33 @@
+# score.react-frontend.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: react-frontend-service
+  annotations:
+    awesome-score-spec.dev/description: "A React frontend with a live-reloading development server."
+service:
+  # This is the main, public-facing port
+  ports:
+    http:
+      port: 3000
+      targetPort: 3000
+containers:
+  frontend:
+    image: react-spring-demo-frontend:latest
+    variables:
+      # The React app needs to know the URL of the backend API.
+      REACT_APP_API_URL: "http://${resources.backend.name}:8080"
+    volumes:
+      /code/src:
+        source: ${resources.frontend-source}
+      /project/node_modules: # Correct path from the compose file for the cache
+        source: ${resources.node-modules-cache}
+resources:
+  # Declares the dependency on the backend workload
+  backend:
+    type: service
+    class: spring-backend-service
+  # Declares volumes for source code and a node_modules cache
+  frontend-source:
+    type: volume
+  node-modules-cache:
+    type: volume
