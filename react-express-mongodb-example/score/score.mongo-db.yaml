@@ -1,0 +1,27 @@
+# score.mongo-db.yaml
+apiVersion: score.dev/v1b1
+metadata:
+  name: mongo-db-service
+  annotations:
+    awesome-score-spec.dev/description: "A standalone MongoDB database service."
+service:
+  # This internal port is consumed by the Express backend
+  ports:
+    tcp:
+      port: 27017
+      targetPort: 27017
+containers:
+  mongo:
+    image: mongo:4.2.0
+    # A readiness probe is essential for a database to ensure it's up
+    readinessProbe:
+      exec:
+        # 'mongosh --eval' is a standard way to check MongoDB's status
+        command: ["mongosh", "--eval", "db.adminCommand('ping')"]
+    volumes:
+      /data/db:
+        source: ${resources.mongo-data}
+resources:
+  # Declares the need for a persistent volume for the database data
+  mongo-data:
+    type: volume
