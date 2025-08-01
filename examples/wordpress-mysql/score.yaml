@@ -18,3 +18,11 @@ resources:
   db:
     type: mysql
     class: wp
+  dns:
+    type: dns
+  route:
+    type: route
+    params:
+      host: ${resources.dns.host}
+      path: /
+      port: 80
