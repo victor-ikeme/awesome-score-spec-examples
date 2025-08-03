@@ -14,7 +14,6 @@ help:
 WORKLOAD_NAME = aspnet-mssql
 CONTAINER_NAME = aspnet
 CONTAINER_IMAGE = ${CONTAINER_NAME}-image:local
-NAMESPACE ?= default
 PORT ?= 80
 
 
@@ -45,21 +44,25 @@ compose-test: compose-up
 compose-down:
 	docker compose down -v --remove-orphans || true
 
-.score-k8s/state.yaml:
-	score-k8s init \
-		--no-sample \
-		--provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/service/score-k8s/10-service.provisioners.yaml
-
-manifests.yaml: score/score.yaml .score-k8s/state.yaml Makefile
-	score-k8s generate score/score.yaml \
-		--image ${CONTAINER_IMAGE}
-
 ## Create a local Kind cluster.
 .PHONY: kind-create-cluster
 kind-create-cluster:
 	./scripts/setup-kind-cluster.sh
 
+.PHONY: kind-load-images
+kind-load-images:
+	kind load docker-image ${CONTAINER_IMAGE}
+
 NAMESPACE ?= default
+
+.score-k8s/state.yaml:
+	score-k8s init \
+		--no-sample
+
+manifests.yaml: score/score.yaml .score-k8s/state.yaml Makefile
+	score-k8s generate score/score.yaml \
+		--image ${CONTAINER_IMAGE}
+
 ## Generate a manifests.yaml file from the score spec and apply it in Kubernetes.
 .PHONY: k8s-up
 k8s-up: manifests.yaml
@@ -69,7 +72,7 @@ k8s-up: manifests.yaml
 	kubectl wait deployments/${WORKLOAD_NAME} \
 		-n ${NAMESPACE} \
 		--for condition=Available \
-		--timeout=90s
+		--timeout=180s
 	kubectl wait pods \
 		-n ${NAMESPACE} \
 		-l app.kubernetes.io/name=${WORKLOAD_NAME} \
