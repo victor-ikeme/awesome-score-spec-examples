@@ -1,3 +1,4 @@
+---
 name: ci-directory
 permissions:
   contents: read
@@ -19,12 +20,15 @@ jobs:
       - name: Find YAML files in score/
         id: set-yaml-files
         run: |
-          YAML_FILES=$(find examples/${{ github.event.inputs.dir }}/score -type f -name "*.yaml" | sed 's|examples/${{ github.event.inputs.dir }}/score/||' | sort -u || true)
+          YAML_FILES=$(find examples/${{ github.event.inputs.dir }}/score \
+            -type f -name "*.yaml" | sed 's|examples/${{ github.event.inputs.dir }}/score/||' | \
+            sort -u || true)
           if [ -z "$YAML_FILES" ]; then
             echo "No YAML files found in examples/${{ github.event.inputs.dir }}/score/"
             exit 1
           fi
-          YAML_FILES_JSON=$(echo "$YAML_FILES" | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          YAML_FILES_JSON=$(echo "$YAML_FILES" | jq -R -s -c \
+            'split("\n") | map(select(. != ""))')
           echo "yaml_files=$YAML_FILES_JSON" >> $GITHUB_OUTPUT
           echo "YAML files: $YAML_FILES_JSON"
         env:
@@ -48,9 +52,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: humctl score validate
         run: |
-          humctl score validate examples/${{ github.event.inputs.dir }}/score/${{ matrix.yaml_file }} \
-              --strict \
-              --local
+          humctl score validate \
+            examples/${{ github.event.inputs.dir }}/score/${{ matrix.yaml_file }} \
+            --strict --local
 
   score-compose:
     needs: detect-yaml-files
@@ -83,12 +87,14 @@ jobs:
       - name: Run make compose-test
         run: |
           cd examples/${{ github.event.inputs.dir }}
-          make -f Makefile compose-test SCORE_FILE=${{ env.SCORE_FILE }} WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+          make -f Makefile compose-test SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
       - name: Run make compose-down
         if: always()
         run: |
           cd examples/${{ github.event.inputs.dir }}
-          make -f Makefile compose-down SCORE_FILE=${{ env.SCORE_FILE }} WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
+          make -f Makefile compose-down SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
 
   score-k8s:
     needs: detect-yaml-files
@@ -100,6 +106,8 @@ jobs:
       SCORE_K8S_VERSION: 'latest'
       SCORE_FILE: score/${{ matrix.yaml_file }}
       WORKLOAD_NAME: ${{ replace(matrix.yaml_file, '.yaml', '') }}
+      CONTAINER_NAME: ${{ replace(matrix.yaml_file, '.yaml', '') }}
+      CONTAINER_IMAGE: ${{ replace(matrix.yaml_file, '.yaml', '') }}:local
       NAMESPACE: default
       PORT: 80
     steps:
@@ -113,9 +121,8 @@ jobs:
           version: ${{ env.SCORE_K8S_VERSION }}
       - name: Create Kind cluster
         run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
-          chmod +x ./kind
-          ./kind create cluster
+          cd examples/${{ github.event.inputs.dir }}
+          ./scripts/setup-kind-cluster.sh
       - name: Check for Makefile
         run: |
           if [ ! -f examples/${{ github.event.inputs.dir }}/Makefile ]; then
@@ -126,21 +133,23 @@ jobs:
         id: k8s-up
         run: |
           cd examples/${{ github.event.inputs.dir }}
-          make -f Makefile k8s-up SCORE_FILE=${{ env.SCORE_FILE }} WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+          make -f Makefile k8s-up SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
       - name: Run make k8s-test
         run: |
           cd examples/${{ github.event.inputs.dir }}
-          make -f Makefile k8s-test SCORE_FILE=${{ env.SCORE_FILE }} WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+          make -f Makefile k8s-test SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
       - name: Run make k8s-down
         if: always()
         run: |
           cd examples/${{ github.event.inputs.dir }}
-          make -f Makefile k8s-down SCORE_FILE=${{ env.SCORE_FILE }} WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
+          make -f Makefile k8s-down SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
       - name: Catch k8s-up errors
-        if: ${{ failure() && steps.k8s-up.outcome == 'failure' }}
+        if: always()
         run: |
           cd examples/${{ github.event.inputs.dir }}
-          kubectl get events -n ${NAMESPACE}
-          kubectl logs \
-              -l app.kubernetes.io/name=${{ env.WORKLOAD_NAME }} \
-              -n ${NAMESPACE}# Force registration
+          kubectl get events -n ${{ env.NAMESPACE }}
+          kubectl logs -l app.kubernetes.io/name=${{ env.WORKLOAD_NAME }} \
+            -n ${{ env.NAMESPACE }}
