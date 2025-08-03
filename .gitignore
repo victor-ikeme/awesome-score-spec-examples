@@ -12,6 +12,10 @@ Makefile
 setup-scripts/
 NOTES.md
 **/project.meta.yml
+.devcontainer
+
+# Allow Makefiles in examples/
+!examples/*/Makefile
 
 # ────────────────────────────────
 # 🗃️ Static Content and Blog Artifacts
