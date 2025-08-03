@@ -1,131 +1,63 @@
 name: ci
 permissions:
   contents: read
-  id-token: write
+  actions: write # Needed for workflow_dispatch
 on:
   push:
 jobs:
   detect-changed-dirs:
     runs-on: ubuntu-24.04
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      dirs: ${{ steps.set-dirs.outputs.dirs }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 2 # Needed to compare with previous commit
-      - name: Find changed directories and yaml files
-        id: set-matrix
+      - name: Debug changed files
         run: |
-          # Get changed yaml files in examples/*/score/
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD | grep '^examples/[^/]\+/score/.*\.yaml$' || true)
-          # Create a JSON array of objects with dir and yaml_file
-          MATRIX_JSON=$(echo "$CHANGED_FILES" | while read -r file; do
-            dir=$(echo "$file" | sed 's|^examples/\([^/]\+\)/score/.*$|\1|')
-            yaml_file=$(basename "$file")
-            jq -n -c --arg dir "$dir" --arg yaml_file "$yaml_file" '{dir: $dir, yaml_file: $yaml_file}'
-          done | jq -s -c '.')
-          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+          echo "Changed files:"
+          git diff --name-only HEAD^ HEAD
+          echo "Filtered files (score/*.yaml or Makefile):"
+          git diff --name-only HEAD^ HEAD | grep '^examples/[^/]\+/\(\(score/.*\.yaml\)\|\(Makefile\)\)$' || echo "No relevant files found"
+      - name: Find changed directories
+        id: set-dirs
+        run: |
+          # Get changed score/*.yaml or Makefile in examples/*
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD | grep '^examples/[^/]\+/\(\(score/.*\.yaml\)\|\(Makefile\)\)$' || true)
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No changed YAML files or Makefiles found, setting empty dirs"
+            echo "dirs=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          # Extract unique directories
+          DIRS_JSON=$(echo "$CHANGED_FILES" | sed 's|^examples/\([^/]\+\)/.*$|\1|' | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "dirs=$DIRS_JSON" >> $GITHUB_OUTPUT
+          echo "Dirs output: $DIRS_JSON"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  score-validate:
+  trigger-directory-workflows:
     needs: detect-changed-dirs
+    if: ${{ needs.detect-changed-dirs.outputs.dirs != '[]' }}
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        app: ${{ fromJson(needs.detect-changed-dirs.outputs.matrix) }}
-    env:
-      HUMCTL_VERSION: '*'
+        dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install humctl
-        uses: humanitec/setup-cli-action@v1
-        with:
-          version: ${{ env.HUMCTL_VERSION }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: humctl score validate
+      - name: Check for workflow file
         run: |
-          humctl score validate examples/${{ matrix.app.dir }}/score/${{ matrix.app.yaml_file }} \
-              --strict \
-              --local
-
-  score-compose:
-    needs: detect-changed-dirs
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        app: ${{ fromJson(needs.detect-changed-dirs.outputs.matrix) }}
-    env:
-      SCORE_COMPOSE_VERSION: 'latest'
-      SCORE_FILE: score/${{ matrix.app.yaml_file }}
-      WORKLOAD_NAME: ${{ matrix.app.dir }}-${{ matrix.app.yaml_file }}
-      CONTAINER_NAME: ${{ matrix.app.dir }}-${{ matrix.app.yaml_file }}
-      CONTAINER_IMAGE: ${{ matrix.app.dir }}-${{ matrix.app.yaml_file }}:local
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Install score-compose
-        uses: score-spec/setup-score@v3
-        with:
-          file: score-compose
-          token: ${{ secrets.GITHUB_TOKEN }}
-          version: ${{ env.SCORE_COMPOSE_VERSION }}
-      - name: Run make compose-test
+          if [ ! -f examples/${{ matrix.dir }}/.github/workflows/ci.yaml ]; then
+            echo "No ci.yaml found in examples/${{ matrix.dir }}/.github/workflows/"
+            exit 1
+          fi
+      - name: Trigger directory workflow
         run: |
-          cd examples/${{ matrix.app.dir }}
-          make -f Makefile compose-test SCORE_FILE=${{ env.SCORE_FILE }}
-      - name: Run make compose-down
-        if: always()
-        run: |
-          cd examples/${{ matrix.app.dir }}
-          make -f Makefile compose-down SCORE_FILE=${{ env.SCORE_FILE }} || true
-
-  score-k8s:
-    needs: detect-changed-dirs
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        app: ${{ fromJson(needs.detect-changed-dirs.outputs.matrix) }}
-    env:
-      SCORE_K8S_VERSION: 'latest'
-      SCORE_FILE: score/${{ matrix.app.yaml_file }}
-      WORKLOAD_NAME: ${{ matrix.app.dir }}-${{ matrix.app.yaml_file }}
-      NAMESPACE: default
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Install score-k8s
-        uses: score-spec/setup-score@v3
-        with:
-          file: score-k8s
-          token: ${{ secrets.GITHUB_TOKEN }}
-          version: ${{ env.SCORE_K8S_VERSION }}
-      - name: Create Kind cluster
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
-          chmod +x ./kind
-          ./kind create cluster
-      - name: Run make k8s-up
-        id: k8s-up
-        run: |
-          cd examples/${{ matrix.app.dir }}
-          make -f Makefile k8s-up SCORE_FILE=${{ env.SCORE_FILE }}
-      - name: Run make k8s-test
-        run: |
-          cd examples/${{ matrix.app.dir }}
-          make -f Makefile k8s-test SCORE_FILE=${{ env.SCORE_FILE }}
-      - name: Run make k8s-down
-        if: always()
-        run: |
-          cd examples/${{ matrix.app.dir }}
-          make -f Makefile k8s-down SCORE_FILE=${{ env.SCORE_FILE }} || true
-      - name: Catch k8s-up errors
-        if: ${{ failure() && steps.k8s-up.outcome == 'failure' }}
-        run: |
-          cd examples/${{ matrix.app.dir }}
-          kubectl get events -n ${NAMESPACE}
-          kubectl logs \
-              -l app.kubernetes.io/name=${{ matrix.app.dir }}-${{ matrix.app.yaml_file }} \
-              -n ${NAMESPACE}
+          gh workflow run ci.yaml \
+            --repo ${{ github.repository }} \
+            --ref ${{ github.ref }} \
+            -f dir=${{ matrix.dir }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
