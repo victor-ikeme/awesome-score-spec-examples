@@ -1,0 +1,31 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: aspnet-mssql
+  annotations:
+    awesome-score-spec.dev/description: "An ASP.NET application with a declaratively provisioned MS SQL Server database."
+containers:
+  aspnet:
+    image: .
+    variables:
+      MSSQL_CONNECTION_STRING: "Server=${resources.db.server}; Database=${resources.db.database}; User=${resources.db.username}; Password=${resources.db.password};"
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+service:
+  ports:
+    http:
+      port: 80
+      targetPort: 80
+resources:
+  db:
+    type: mssql
+  dns:
+    type: dns
+  route:
+    type: route
+    params:
+      host: ${resources.dns.host}
+      path: /
+      port: 80
+  
