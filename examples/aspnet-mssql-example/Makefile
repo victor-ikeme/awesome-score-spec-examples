@@ -23,14 +23,14 @@ PORT ?= 80
 		--no-sample
 
 compose.yaml: score/score.yaml  .score-compose/state.yaml Makefile
-	score-compose generate \
-		score/score.yaml \
+	score-compose generate score/score.yaml \
+		--build 'web={"context":"app/aspnetapp","tags":["aspnet-image:local"]}' \
 		--publish $(PORT):$(WORKLOAD_NAME):$(PORT)
 
 ## Generate a compose.yaml file from the score specs and launch it.
 .PHONY: compose-up
 compose-up: compose.yaml
-	docker compose up -d --remove-orphans
+	docker compose up --build -d --remove-orphans
 
 ## Generate a compose.yaml file from the score spec, launch it and test (curl) the exposed container.
 .PHONY: compose-test
@@ -85,6 +85,8 @@ k8s-test: k8s-up
 	kubectl logs \
 		-l app.kubernetes.io/name=${WORKLOAD_NAME} \
 		-n ${NAMESPACE}
+	kubectl port-forward svc/$(WORKLOAD_NAME) $(PORT):$(PORT) -n $(NAMESPACE) &
+	sleep 2
 	curl -v localhost:80 \
 		-H "Host: $$(score-k8s resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}')"
 
