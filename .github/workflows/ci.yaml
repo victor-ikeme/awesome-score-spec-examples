@@ -69,7 +69,6 @@ jobs:
         yaml_file: ${{ fromJson(needs.detect-yaml-files.outputs.yaml_files) }}
     env:
       HUMCTL_VERSION: '*'
-      WORKLOAD_NAME: ${{ matrix.yaml_file }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -92,13 +91,6 @@ jobs:
       matrix:
         dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
         yaml_file: ${{ fromJson(needs.detect-yaml-files.outputs.yaml_files) }}
-    env:
-      SCORE_COMPOSE_VERSION: 'latest'
-      SCORE_FILE: score/${{ matrix.yaml_file }}
-      WORKLOAD_NAME: ${{ matrix.yaml_file }}
-      CONTAINER_NAME: ${{ matrix.yaml_file }}
-      CONTAINER_IMAGE: ${{ matrix.yaml_file }}:local
-      PORT: 80
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -107,26 +99,27 @@ jobs:
         with:
           file: score-compose
           token: ${{ secrets.GITHUB_TOKEN }}
-          version: ${{ env.SCORE_COMPOSE_VERSION }}
+          version: latest
+      - name: Debug Makefile path
+        run: |
+          echo "Checking examples/${{ matrix.dir }}/Makefile"
+          ls -la examples/${{ matrix.dir }}/Makefile || echo "Makefile not found"
+          pwd
       - name: Check for Makefile
         run: |
           if [ ! -f examples/${{ matrix.dir }}/Makefile ]; then
-            echo "No Makefile found"
+            echo "No Makefile found in examples/${{ matrix.dir }}"
             exit 1
           fi
       - name: Run make compose-test
         run: |
           cd examples/${{ matrix.dir }}
-          make -f Makefile compose-test \
-            SCORE_FILE=${{ env.SCORE_FILE }} \
-            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+          make compose-test
       - name: Run make compose-down
         if: always()
         run: |
           cd examples/${{ matrix.dir }}
-          make -f Makefile compose-down \
-            SCORE_FILE=${{ env.SCORE_FILE }} \
-            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
+          make compose-down || true
 
   score-k8s:
     needs: [detect-changed-dirs, detect-yaml-files]
@@ -136,14 +129,6 @@ jobs:
       matrix:
         dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
         yaml_file: ${{ fromJson(needs.detect-yaml-files.outputs.yaml_files) }}
-    env:
-      SCORE_K8S_VERSION: 'latest'
-      SCORE_FILE: score/${{ matrix.yaml_file }}
-      WORKLOAD_NAME: ${{ matrix.yaml_file }}
-      CONTAINER_NAME: ${{ matrix.yaml_file }}
-      CONTAINER_IMAGE: ${{ matrix.yaml_file }}:local
-      NAMESPACE: default
-      PORT: 80
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -152,41 +137,39 @@ jobs:
         with:
           file: score-k8s
           token: ${{ secrets.GITHUB_TOKEN }}
-          version: ${{ env.SCORE_K8S_VERSION }}
+          version: latest
+      - name: Debug Makefile path
+        run: |
+          echo "Checking examples/${{ matrix.dir }}/Makefile"
+          ls -la examples/${{ matrix.dir }}/Makefile || echo "Makefile not found"
+          pwd
+      - name: Check for Makefile
+        run: |
+          if [ ! -f examples/${{ matrix.dir }}/Makefile ]; then
+            echo "No Makefile found in examples/${{ matrix.dir }}"
+            exit 1
+          fi
       - name: Create Kind cluster
         run: |
           cd examples/${{ matrix.dir }}
           ./scripts/setup-kind-cluster.sh
-      - name: Check for Makefile
-        run: |
-          if [ ! -f examples/${{ matrix.dir }}/Makefile ]; then
-            echo "No Makefile found"
-            exit 1
-          fi
       - name: Run make k8s-up
         id: k8s-up
         run: |
           cd examples/${{ matrix.dir }}
-          make -f Makefile k8s-up \
-            SCORE_FILE=${{ env.SCORE_FILE }} \
-            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+          make k8s-up
       - name: Run make k8s-test
         run: |
           cd examples/${{ matrix.dir }}
-          make -f Makefile k8s-test \
-            SCORE_FILE=${{ env.SCORE_FILE }} \
-            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+          make k8s-test
       - name: Run make k8s-down
         if: always()
         run: |
           cd examples/${{ matrix.dir }}
-          make -f Makefile k8s-down \
-            SCORE_FILE=${{ env.SCORE_FILE }} \
-            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
+          make k8s-down || true
       - name: Catch k8s-up errors
         if: always()
         run: |
           cd examples/${{ matrix.dir }}
-          kubectl get events -n ${{ env.NAMESPACE }}
-          kubectl logs -l app.kubernetes.io/name=${{ env.WORKLOAD_NAME }} \
-            -n ${{ env.NAMESPACE }}
+          kubectl get events -n default
+          kubectl logs -l app.kubernetes.io/name=$(basename ${{ matrix.yaml_file }} .yaml) -n default
