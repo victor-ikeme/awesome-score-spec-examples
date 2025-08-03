@@ -13,7 +13,7 @@ help:
 
 WORKLOAD_NAME = aspnet-mssql
 CONTAINER_NAME = aspnet
-CONTAINER_IMAGE = ${CONTAINER_NAME}:local
+CONTAINER_IMAGE = ${CONTAINER_NAME}-image:local
 NAMESPACE ?= default
 PORT ?= 80
 
@@ -24,7 +24,7 @@ PORT ?= 80
 
 compose.yaml: score/score.yaml  .score-compose/state.yaml Makefile
 	score-compose generate score/score.yaml \
-		--build 'web={"context":"app/aspnetapp","tags":["aspnet-image:local"]}' \
+		--build '${CONTAINER_NAME}={"context":"app/aspnetapp","tags":["${CONTAINER_IMAGE}"]}' \
 		--publish $(PORT):$(WORKLOAD_NAME):$(PORT)
 
 ## Generate a compose.yaml file from the score specs and launch it.
@@ -51,8 +51,8 @@ compose-down:
 		--provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/service/score-k8s/10-service.provisioners.yaml
 
 manifests.yaml: score/score.yaml .score-k8s/state.yaml Makefile
-	score-k8s generate \
-		score/score.yaml
+	score-k8s generate score/score.yaml \
+		--image ${CONTAINER_IMAGE}
 
 ## Create a local Kind cluster.
 .PHONY: kind-create-cluster
