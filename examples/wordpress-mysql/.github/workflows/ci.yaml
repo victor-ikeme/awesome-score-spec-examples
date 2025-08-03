@@ -143,4 +143,4 @@ jobs:
           kubectl get events -n ${NAMESPACE}
           kubectl logs \
               -l app.kubernetes.io/name=${{ env.WORKLOAD_NAME }} \
-              -n ${NAMESPACE}
+              -n ${NAMESPACE}# Force registration
