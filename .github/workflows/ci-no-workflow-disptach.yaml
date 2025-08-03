@@ -47,37 +47,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Debug workflow files
-        run: |
-          echo "Workflow files in examples/${{ matrix.dir }}/.github/workflows/:"
-          ls -l examples/${{ matrix.dir }}/.github/workflows/ || echo "No workflow directory found"
-      - name: Check for ci.yaml
-        id: check-workflow
+      - name: Check for workflow file
         run: |
           if [ ! -f examples/${{ matrix.dir }}/.github/workflows/ci.yaml ]; then
             echo "No ci.yaml found in examples/${{ matrix.dir }}/.github/workflows/"
             exit 1
           fi
-          echo "Found ci.yaml in examples/${{ matrix.dir }}/.github/workflows/"
-      - name: Get workflow ID
-        id: get-workflow-id
-        run: |
-          WORKFLOW_ID=$(gh api repos/${{ github.repository }}/actions/workflows | jq -r '.workflows[] | select(.path == "examples/${{ matrix.dir }}/.github/workflows/ci.yaml") | .id')
-          if [ -z "$WORKFLOW_ID" ]; then
-            echo "Workflow ci.yaml not found in repository"
-            exit 1
-          fi
-          echo "workflow_id=$WORKFLOW_ID" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Trigger directory workflow
         run: |
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/actions/workflows/${{ steps.get-workflow-id.outputs.workflow_id }}/dispatches \
-            -f ref=${{ github.ref }} \
-            -f "inputs[dir]=${{ matrix.dir }}"
+          gh workflow run ci.yaml \
+            --repo ${{ github.repository }} \
+            --ref ${{ github.ref }} \
+            -f dir=${{ matrix.dir }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

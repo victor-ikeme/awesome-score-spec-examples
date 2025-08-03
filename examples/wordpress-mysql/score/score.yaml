@@ -2,7 +2,7 @@ apiVersion: score.dev/v1b1
 metadata:
   name: wordpress
   annotations:
-    tags: "wordpress,mysql"
+    tags: "wordpress"
 
 containers:
   wordpress:
