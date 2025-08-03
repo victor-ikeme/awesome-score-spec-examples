@@ -83,7 +83,7 @@ k8s-test: k8s-up
 		-l app.kubernetes.io/name=${WORKLOAD_NAME} \
 		-n ${NAMESPACE}
 	curl -v localhost:80 \
-		-H "Host: $$(score-k8s resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}:80')"
+		-H "Host: $$(score-k8s resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}')"
 
 ## Delete the deployment of the local container in Kubernetes.
 .PHONY: k8s-down
