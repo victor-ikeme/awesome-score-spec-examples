@@ -69,9 +69,9 @@ k8s-up: manifests.yaml
 		--timeout=90s
 	kubectl wait pods \
 		-n ${NAMESPACE} \
-		-l app.kubernetes.io/managed-by=score-k8s \
+		-l app.kubernetes.io/name=${WORKLOAD_NAME} \
 		--for condition=Ready \
-		--timeout=90s
+		--timeout=180s
 
 ## Expose the container deployed in Kubernetes via port-forward.
 .PHONY: k8s-test
