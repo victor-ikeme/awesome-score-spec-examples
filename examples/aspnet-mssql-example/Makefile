@@ -66,7 +66,7 @@ k8s-up: manifests.yaml
 	kubectl apply \
 		-f manifests.yaml \
 		-n ${NAMESPACE}
-	kubectl wait deployments/wordpress \
+	kubectl wait deployments/${WORKLOAD_NAME} \
 		-n ${NAMESPACE} \
 		--for condition=Available \
 		--timeout=90s
