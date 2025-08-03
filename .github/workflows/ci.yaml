@@ -19,25 +19,29 @@ jobs:
       - name: Find changed directories
         id: set-dirs
         run: |
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD | grep -E '^examples/[^/]+/(score/.*\.yaml|Makefile)$' || true)
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD | grep -E \
+            '^examples/[^/]+/(score/.*\.yaml|Makefile)$' || true)
           if [ -z "$CHANGED_FILES" ]; then
             echo "No changed YAML files or Makefiles found"
             echo "dirs=[]" >> $GITHUB_OUTPUT
             exit 0
           fi
-          DIRS_JSON=$(echo "$CHANGED_FILES" | sed 's|^examples/\([^/]\+\)/.*$|\1|' | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          DIRS_JSON=$(echo "$CHANGED_FILES" | sed 's|^examples/\([^/]\+\)/.*$|\1|' | \
+            sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
           echo "dirs=$DIRS_JSON" >> $GITHUB_OUTPUT
           echo "Dirs output: $DIRS_JSON"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  process-directories:
+  detect-yaml-files:
     needs: detect-changed-dirs
     if: ${{ needs.detect-changed-dirs.outputs.dirs != '[]' }}
     runs-on: ubuntu-24.04
     strategy:
       matrix:
         dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
+    outputs:
+      yaml_files: ${{ steps.set-yaml-files.outputs.yaml_files }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,131 +54,139 @@ jobs:
             echo "No YAML files found in examples/${{ matrix.dir }}/score/"
             exit 1
           fi
-          YAML_FILES_JSON=$(echo "$YAML_FILES" | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          YAML_FILES_JSON=$(echo "$YAML_FILES" | jq -R -s -c \
+            'split("\n") | map(select(. != ""))')
           echo "yaml_files=$YAML_FILES_JSON" >> $GITHUB_OUTPUT
           echo "YAML files: $YAML_FILES_JSON"
 
-      - name: score-validate
-        needs: set-yaml-files
-        runs-on: ubuntu-24.04
-        strategy:
-          matrix:
-            yaml_file: ${{ fromJson(steps.set-yaml-files.outputs.yaml_files) }}
-        env:
-          HUMCTL_VERSION: '*'
-        steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
-          - name: Install humctl
-            uses: humanitec/setup-cli-action@v1
-            with:
-              version: ${{ env.HUMCTL_VERSION }}
-              token: ${{ secrets.GITHUB_TOKEN }}
-          - name: humctl score validate
-            run: |
-              humctl score validate \
-                examples/${{ matrix.dir }}/score/${{ matrix.yaml_file }} \
-                --strict --local
+  score-validate:
+    needs: [detect-changed-dirs, detect-yaml-files]
+    if: ${{ needs.detect-changed-dirs.outputs.dirs != '[]' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
+        yaml_file: ${{ fromJson(needs.detect-yaml-files.outputs.yaml_files) }}
+    env:
+      HUMCTL_VERSION: '*'
+      WORKLOAD_NAME: ${{ matrix.yaml_file }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install humctl
+        uses: humanitec/setup-cli-action@v1
+        with:
+          version: ${{ env.HUMCTL_VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: humctl score validate
+        run: |
+          humctl score validate \
+            examples/${{ matrix.dir }}/score/${{ matrix.yaml_file }} \
+            --strict --local
 
-      - name: score-compose
-        needs: set-yaml-files
-        runs-on: ubuntu-24.04
-        strategy:
-          matrix:
-            yaml_file: ${{ fromJson(steps.set-yaml-files.outputs.yaml_files) }}
-        env:
-          SCORE_COMPOSE_VERSION: 'latest'
-          SCORE_FILE: score/${{ matrix.yaml_file }}
-          WORKLOAD_NAME: ${{ replace(matrix.yaml_file, '.yaml', '') }}
-          CONTAINER_NAME: ${{ replace(matrix.yaml_file, '.yaml', '') }}
-          CONTAINER_IMAGE: ${{ replace(matrix.yaml_file, '.yaml', '') }}:local
-          PORT: 80
-        steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
-          - name: Install score-compose
-            uses: score-spec/setup-score@v3
-            with:
-              file: score-compose
-              token: ${{ secrets.GITHUB_TOKEN }}
-              version: ${{ env.SCORE_COMPOSE_VERSION }}
-          - name: Check for Makefile
-            run: |
-              if [ ! -f examples/${{ matrix.dir }}/Makefile ]; then
-                echo "No Makefile found"
-                exit 1
-              fi
-          - name: Run make compose-test
-            run: |
-              cd examples/${{ matrix.dir }}
-              make -f Makefile compose-test \
-                SCORE_FILE=${{ env.SCORE_FILE }} \
-                WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
-          - name: Run make compose-down
-            if: always()
-            run: |
-              cd examples/${{ matrix.dir }}
-              make -f Makefile compose-down \
-                SCORE_FILE=${{ env.SCORE_FILE }} \
-                WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
+  score-compose:
+    needs: [detect-changed-dirs, detect-yaml-files]
+    if: ${{ needs.detect-changed-dirs.outputs.dirs != '[]' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
+        yaml_file: ${{ fromJson(needs.detect-yaml-files.outputs.yaml_files) }}
+    env:
+      SCORE_COMPOSE_VERSION: 'latest'
+      SCORE_FILE: score/${{ matrix.yaml_file }}
+      WORKLOAD_NAME: ${{ matrix.yaml_file }}
+      CONTAINER_NAME: ${{ matrix.yaml_file }}
+      CONTAINER_IMAGE: ${{ matrix.yaml_file }}:local
+      PORT: 80
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install score-compose
+        uses: score-spec/setup-score@v3
+        with:
+          file: score-compose
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ env.SCORE_COMPOSE_VERSION }}
+      - name: Check for Makefile
+        run: |
+          if [ ! -f examples/${{ matrix.dir }}/Makefile ]; then
+            echo "No Makefile found"
+            exit 1
+          fi
+      - name: Run make compose-test
+        run: |
+          cd examples/${{ matrix.dir }}
+          make -f Makefile compose-test \
+            SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+      - name: Run make compose-down
+        if: always()
+        run: |
+          cd examples/${{ matrix.dir }}
+          make -f Makefile compose-down \
+            SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
 
-      - name: score-k8s
-        needs: set-yaml-files
-        runs-on: ubuntu-24.04
-        strategy:
-          matrix:
-            yaml_file: ${{ fromJson(steps.set-yaml-files.outputs.yaml_files) }}
-        env:
-          SCORE_K8S_VERSION: 'latest'
-          SCORE_FILE: score/${{ matrix.yaml_file }}
-          WORKLOAD_NAME: ${{ replace(matrix.yaml_file, '.yaml', '') }}
-          CONTAINER_NAME: ${{ replace(matrix.yaml_file, '.yaml', '') }}
-          CONTAINER_IMAGE: ${{ replace(matrix.yaml_file, '.yaml', '') }}:local
-          NAMESPACE: default
-          PORT: 80
-        steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
-          - name: Install score-k8s
-            uses: score-spec/setup-score@v3
-            with:
-              file: score-k8s
-              token: ${{ secrets.GITHUB_TOKEN }}
-              version: ${{ env.SCORE_K8S_VERSION }}
-          - name: Create Kind cluster
-            run: |
-              cd examples/${{ matrix.dir }}
-              ./scripts/setup-kind-cluster.sh
-          - name: Check for Makefile
-            run: |
-              if [ ! -f examples/${{ matrix.dir }}/Makefile ]; then
-                echo "No Makefile found"
-                exit 1
-              fi
-          - name: Run make k8s-up
-            id: k8s-up
-            run: |
-              cd examples/${{ matrix.dir }}
-              make -f Makefile k8s-up \
-                SCORE_FILE=${{ env.SCORE_FILE }} \
-                WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
-          - name: Run make k8s-test
-            run: |
-              cd examples/${{ matrix.dir }}
-              make -f Makefile k8s-test \
-                SCORE_FILE=${{ env.SCORE_FILE }} \
-                WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
-          - name: Run make k8s-down
-            if: always()
-            run: |
-              cd examples/${{ matrix.dir }}
-              make -f Makefile k8s-down \
-                SCORE_FILE=${{ env.SCORE_FILE }} \
-                WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
-          - name: Catch k8s-up errors
-            if: always()
-            run: |
-              cd examples/${{ matrix.dir }}
-              kubectl get events -n ${{ env.NAMESPACE }}
-              kubectl logs -l app.kubernetes.io/name=${{ env.WORKLOAD_NAME }} \
-                -n ${{ env.NAMESPACE }}
+  score-k8s:
+    needs: [detect-changed-dirs, detect-yaml-files]
+    if: ${{ needs.detect-changed-dirs.outputs.dirs != '[]' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
+        yaml_file: ${{ fromJson(needs.detect-yaml-files.outputs.yaml_files) }}
+    env:
+      SCORE_K8S_VERSION: 'latest'
+      SCORE_FILE: score/${{ matrix.yaml_file }}
+      WORKLOAD_NAME: ${{ matrix.yaml_file }}
+      CONTAINER_NAME: ${{ matrix.yaml_file }}
+      CONTAINER_IMAGE: ${{ matrix.yaml_file }}:local
+      NAMESPACE: default
+      PORT: 80
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install score-k8s
+        uses: score-spec/setup-score@v3
+        with:
+          file: score-k8s
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ env.SCORE_K8S_VERSION }}
+      - name: Create Kind cluster
+        run: |
+          cd examples/${{ matrix.dir }}
+          ./scripts/setup-kind-cluster.sh
+      - name: Check for Makefile
+        run: |
+          if [ ! -f examples/${{ matrix.dir }}/Makefile ]; then
+            echo "No Makefile found"
+            exit 1
+          fi
+      - name: Run make k8s-up
+        id: k8s-up
+        run: |
+          cd examples/${{ matrix.dir }}
+          make -f Makefile k8s-up \
+            SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+      - name: Run make k8s-test
+        run: |
+          cd examples/${{ matrix.dir }}
+          make -f Makefile k8s-test \
+            SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }}
+      - name: Run make k8s-down
+        if: always()
+        run: |
+          cd examples/${{ matrix.dir }}
+          make -f Makefile k8s-down \
+            SCORE_FILE=${{ env.SCORE_FILE }} \
+            WORKLOAD_NAME=${{ env.WORKLOAD_NAME }} PORT=${{ env.PORT }} || true
+      - name: Catch k8s-up errors
+        if: always()
+        run: |
+          cd examples/${{ matrix.dir }}
+          kubectl get events -n ${{ env.NAMESPACE }}
+          kubectl logs -l app.kubernetes.io/name=${{ env.WORKLOAD_NAME }} \
+            -n ${{ env.NAMESPACE }}
