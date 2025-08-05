@@ -8,42 +8,16 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      dir:
+        description: 'Directory under examples/ to build (e.g., wordpress-mysql)'
+        required: true
 env:
-  IMAGE_TAG: ${{ github.ref_name }}
+  IMAGE_TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.dir }}
 jobs:
-  detect-changed-dirs:
-    runs-on: ubuntu-24.04
-    outputs:
-      dirs: ${{ steps.set-dirs.outputs.dirs }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Find changed directories
-        id: set-dirs
-        run: |
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD | grep -E \
-            '^examples/[^/]+/(apps/.*Dockerfile|score/.*\.yaml)$' || true)
-          if [ -z "$CHANGED_FILES" ]; then
-            echo "No changed Dockerfiles or YAML files found"
-            echo "dirs=[]" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          DIRS_JSON=$(echo "$CHANGED_FILES" | sed 's|^examples/\([^/]\+\)/.*$|\1|' | \
-            sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "dirs=$DIRS_JSON" >> $GITHUB_OUTPUT
-          echo "Dirs output: $DIRS_JSON"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   detect-dockerfiles:
-    needs: detect-changed-dirs
-    if: ${{ needs.detect-changed-dirs.outputs.dirs != '[]' }}
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
     outputs:
       dockerfiles: ${{ steps.set-dockerfiles.outputs.dockerfiles }}
     steps:
@@ -51,15 +25,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Debug directory contents
         run: |
-          echo "Listing examples/${{ matrix.dir }}/apps"
-          ls -la examples/${{ matrix.dir }}/apps || echo "Apps directory not found"
+          echo "Listing examples/${{ github.event.inputs.dir }}/apps"
+          ls -la examples/${{ github.event.inputs.dir }}/apps || echo "Apps dir not found"
       - name: Find Dockerfiles in apps/
         id: set-dockerfiles
         run: |
-          DOCKERFILES=$(find examples/${{ matrix.dir }}/apps -type f -name "Dockerfile" | \
-            sed 's|examples/${{ matrix.dir }}/apps/||' | sort -u || true)
+          DIR=${{ github.event.inputs.dir }}
+          DOCKERFILES=$(find examples/$DIR/apps -type f -name "Dockerfile" | \
+            sed 's|examples/$DIR/apps/||' | sort -u || true)
           if [ -z "$DOCKERFILES" ]; then
-            echo "No Dockerfiles found in examples/${{ matrix.dir }}/apps/"
+            echo "No Dockerfiles found in examples/$DIR/apps/"
             exit 1
           fi
           DOCKERFILES_JSON=$(echo "$DOCKERFILES" | jq -R -s -c \
@@ -68,12 +43,10 @@ jobs:
           echo "Dockerfiles: $DOCKERFILES_JSON"
 
   build-push:
-    needs: [detect-changed-dirs, detect-dockerfiles]
-    if: ${{ needs.detect-changed-dirs.outputs.dirs != '[]' }}
+    needs: detect-dockerfiles
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        dir: ${{ fromJson(needs.detect-changed-dirs.outputs.dirs) }}
         dockerfile: ${{ fromJson(needs.detect-dockerfiles.outputs.dockerfiles) }}
     steps:
       - name: Checkout code
@@ -89,10 +62,10 @@ jobs:
       - name: Build and push container image
         uses: docker/build-push-action@v6
         with:
-          context: examples/${{ matrix.dir }}/apps/${{ matrix.dockerfile }}
-          file: examples/${{ matrix.dir }}/apps/${{ matrix.dockerfile }}/Dockerfile
+          context: examples/${{ github.event.inputs.dir }}/apps/${{ matrix.dockerfile }}
+          file: examples/${{ github.event.inputs.dir }}/apps/${{ matrix.dockerfile }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.dir }}/${{ matrix.dockerfile }}:${{ env.IMAGE_TAG }}
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.dir }}/${{ matrix.dockerfile }}:latest
+            ghcr.io/${{ github.repository_owner }}/awesome-score-spec-examples/${{ matrix.dockerfile }}:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ github.repository_owner }}/awesome-score-spec-examples/${{ matrix.dockerfile }}:latest
