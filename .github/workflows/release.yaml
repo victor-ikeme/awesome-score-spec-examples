@@ -7,14 +7,14 @@ permissions:
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*-*'
   workflow_dispatch:
     inputs:
       dir:
-        description: 'Directory under examples/ to build (e.g., wordpress-mysql)'
+        description: 'Directory under examples/ to build (e.g., aspnet-mssql-example)'
         required: true
 env:
-  IMAGE_TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.dir }}
+  DIR: ${{ github.event.inputs.dir || (github.event_name == 'push' && github.ref_name | split('-') | last) || 'default' }}
 jobs:
   detect-dockerfiles:
     runs-on: ubuntu-24.04
@@ -25,16 +25,15 @@ jobs:
         uses: actions/checkout@v4
       - name: Debug directory contents
         run: |
-          echo "Listing examples/${{ github.event.inputs.dir }}/apps"
-          ls -la examples/${{ github.event.inputs.dir }}/apps || echo "Apps dir not found"
+          echo "Listing examples/${{ env.DIR }}/apps"
+          ls -la examples/${{ env.DIR }}/apps || echo "Apps dir not found"
       - name: Find Dockerfiles in apps/
         id: set-dockerfiles
         run: |
-          DIR=${{ github.event.inputs.dir }}
-          DOCKERFILES=$(find examples/$DIR/apps -type f -name "Dockerfile" | \
-            sed 's|examples/$DIR/apps/||' | sort -u || true)
+          DOCKERFILES=$(find examples/${{ env.DIR }}/apps -type f -name "Dockerfile" | \
+            sed 's|examples/${{ env.DIR }}/apps/||' | sort -u || true)
           if [ -z "$DOCKERFILES" ]; then
-            echo "No Dockerfiles found in examples/$DIR/apps/"
+            echo "No Dockerfiles found in examples/${{ env.DIR }}/apps/"
             exit 1
           fi
           DOCKERFILES_JSON=$(echo "$DOCKERFILES" | jq -R -s -c \
@@ -62,10 +61,9 @@ jobs:
       - name: Build and push container image
         uses: docker/build-push-action@v6
         with:
-          context: examples/${{ github.event.inputs.dir }}/apps/${{ matrix.dockerfile }}
-          file: examples/${{ github.event.inputs.dir }}/apps/${{ matrix.dockerfile }}/Dockerfile
+          context: examples/${{ env.DIR }}/apps/${{ matrix.dockerfile }}
+          file: examples/${{ env.DIR }}/apps/${{ matrix.dockerfile }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/awesome-score-spec-examples/${{ matrix.dockerfile }}:${{ env.IMAGE_TAG }}
             ghcr.io/${{ github.repository_owner }}/awesome-score-spec-examples/${{ matrix.dockerfile }}:latest
