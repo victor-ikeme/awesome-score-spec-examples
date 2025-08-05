@@ -16,6 +16,7 @@ CONTAINER_NAME = aspnet
 CONTAINER_IMAGE = ${CONTAINER_NAME}-image:local
 PORT ?= 80
 PUBLIC_PORT ?= 8080
+BUILT_CONTAINER_IMAGE ?= ghcr.io/victor-ikeme/awesome-score-spec-examples/$(WORKLOAD_NAME):latest
 
 
 .score-compose/state.yaml:
@@ -24,7 +25,7 @@ PUBLIC_PORT ?= 8080
 
 compose.yaml: score/score.yaml  .score-compose/state.yaml Makefile
 	score-compose generate score/score.yaml \
-		--build '${CONTAINER_NAME}={"context":"app/aspnetapp","tags":["${CONTAINER_IMAGE}"]}' \
+		--build '${CONTAINER_NAME}={"context":"apps/aspnetapp","tags":["${CONTAINER_IMAGE}"]}' \
 		--publish $(PORT):$(WORKLOAD_NAME):$(PORT)
 
 ## Generate a compose.yaml file from the score specs and launch it.
