@@ -11,10 +11,11 @@ help:
 .PHONY: .FORCE
 .FORCE:
 
-WORKLOAD_NAME = aspnet-mssql
+WORKLOAD_NAME = aspnet
 CONTAINER_NAME = aspnet
 CONTAINER_IMAGE = ${CONTAINER_NAME}-image:local
 PORT ?= 80
+PUBLIC_PORT ?= 8080
 
 
 .score-compose/state.yaml:
@@ -88,7 +89,7 @@ k8s-test: k8s-up
 	kubectl logs \
 		-l app.kubernetes.io/name=${WORKLOAD_NAME} \
 		-n ${NAMESPACE}
-	kubectl port-forward svc/$(WORKLOAD_NAME) $(PORT):$(PORT) -n $(NAMESPACE) &
+# kubectl port-forward svc/$(WORKLOAD_NAME) $(PUBLIC_PORT):$(PORT) -n $(NAMESPACE) &
 	sleep 2
 	curl -v localhost:80 \
 		-H "Host: $$(score-k8s resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}')"
