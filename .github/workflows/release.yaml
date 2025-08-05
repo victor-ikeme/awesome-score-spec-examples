@@ -26,13 +26,17 @@ jobs:
         id: set-dir
         run: |
           if [ -n "${{ github.event.inputs.dir }}" ]; then
-            echo "dir=${{ github.event.inputs.dir }}" >> $GITHUB_OUTPUT
+            DIR="${{ github.event.inputs.dir }}"
           elif [ "${{ github.event_name }}" = "push" ]; then
-            DIR=$(echo "${{ github.ref_name }}" | sed 's/.*-//')
-            echo "dir=$DIR" >> $GITHUB_OUTPUT
+            DIR=$(echo "${{ github.ref_name }}" | sed 's/^v[0-9.]*-//')
           else
-            echo "dir=default" >> $GITHUB_OUTPUT
+            DIR="default"
           fi
+          if [ ! -d "examples/$DIR" ]; then
+            echo "Error: Directory examples/$DIR does not exist"
+            exit 1
+          fi
+          echo "dir=$DIR" >> $GITHUB_OUTPUT
       - name: Debug directory contents
         run: |
           echo "Listing examples/${{ steps.set-dir.outputs.dir }}/apps"
