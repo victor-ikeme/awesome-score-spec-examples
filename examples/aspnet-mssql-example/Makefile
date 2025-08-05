@@ -89,7 +89,6 @@ k8s-test: k8s-up
 	kubectl logs \
 		-l app.kubernetes.io/name=${WORKLOAD_NAME} \
 		-n ${NAMESPACE}
-# kubectl port-forward svc/$(WORKLOAD_NAME) $(PUBLIC_PORT):$(PORT) -n $(NAMESPACE) &
 	sleep 2
 	curl -v localhost:80 \
 		-H "Host: $$(score-k8s resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}')"
