@@ -153,6 +153,11 @@ jobs:
         run: |
           cd examples/${{ matrix.dir }}
           ./scripts/setup-kind-cluster.sh
+      - name: Run make kind-load-images
+        id: kind-load-images
+        run: |
+          cd examples/${{ matrix.dir }}
+          make kind-load-images
       - name: Run make k8s-up
         id: k8s-up
         run: |
