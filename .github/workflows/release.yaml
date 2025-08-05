@@ -13,27 +13,37 @@ on:
       dir:
         description: 'Directory under examples/ to build (e.g., aspnet-mssql-example)'
         required: true
-env:
-  DIR: ${{ github.event.inputs.dir || (github.event_name == 'push' && github.ref_name | split('-') | last) || 'default' }}
 jobs:
   detect-dockerfiles:
     runs-on: ubuntu-24.04
     outputs:
       dockerfiles: ${{ steps.set-dockerfiles.outputs.dockerfiles }}
+      dir: ${{ steps.set-dir.outputs.dir }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Set directory
+        id: set-dir
+        run: |
+          if [ -n "${{ github.event.inputs.dir }}" ]; then
+            echo "dir=${{ github.event.inputs.dir }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            DIR=$(echo "${{ github.ref_name }}" | sed 's/.*-//')
+            echo "dir=$DIR" >> $GITHUB_OUTPUT
+          else
+            echo "dir=default" >> $GITHUB_OUTPUT
+          fi
       - name: Debug directory contents
         run: |
-          echo "Listing examples/${{ env.DIR }}/apps"
-          ls -la examples/${{ env.DIR }}/apps || echo "Apps dir not found"
+          echo "Listing examples/${{ steps.set-dir.outputs.dir }}/apps"
+          ls -la examples/${{ steps.set-dir.outputs.dir }}/apps || echo "Apps dir not found"
       - name: Find Dockerfiles in apps/
         id: set-dockerfiles
         run: |
-          DOCKERFILES=$(find examples/${{ env.DIR }}/apps -type f -name "Dockerfile" | \
-            sed 's|examples/${{ env.DIR }}/apps/||' | sort -u || true)
+          DOCKERFILES=$(find examples/${{ steps.set-dir.outputs.dir }}/apps -type f -name "Dockerfile" | \
+            sed 's|examples/${{ steps.set-dir.outputs.dir }}/apps/||' | sort -u || true)
           if [ -z "$DOCKERFILES" ]; then
-            echo "No Dockerfiles found in examples/${{ env.DIR }}/apps/"
+            echo "No Dockerfiles found in examples/${{ steps.set-dir.outputs.dir }}/apps/"
             exit 1
           fi
           DOCKERFILES_JSON=$(echo "$DOCKERFILES" | jq -R -s -c \
@@ -61,8 +71,8 @@ jobs:
       - name: Build and push container image
         uses: docker/build-push-action@v6
         with:
-          context: examples/${{ env.DIR }}/apps/${{ matrix.dockerfile }}
-          file: examples/${{ env.DIR }}/apps/${{ matrix.dockerfile }}/Dockerfile
+          context: examples/${{ needs.detect-dockerfiles.outputs.dir }}/apps/${{ matrix.dockerfile }}
+          file: examples/${{ needs.detect-dockerfiles.outputs.dir }}/apps/${{ matrix.dockerfile }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
