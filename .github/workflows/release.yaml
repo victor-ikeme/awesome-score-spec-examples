@@ -45,7 +45,7 @@ jobs:
         id: set-dockerfiles
         run: |
           DOCKERFILES=$(find examples/${{ steps.set-dir.outputs.dir }}/apps -type f -name "Dockerfile" | \
-            sed 's|examples/${{ steps.set-dir.outputs.dir }}/apps/||' | sort -u || true)
+            sed 's|examples/${{ steps.set-dir.outputs.dir }}/apps/\([^/]*\)/Dockerfile|\1|' | sort -u || true)
           if [ -z "$DOCKERFILES" ]; then
             echo "No Dockerfiles found in examples/${{ steps.set-dir.outputs.dir }}/apps/"
             exit 1
