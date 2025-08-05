@@ -3,7 +3,7 @@ metadata:
   name: aspnet
   annotations:
     awesome-score-spec.dev/description: "An ASP.NET application with a declaratively provisioned MS SQL Server database."
-    tags: "aspnet, mssql"
+    tags: "aspnet, mssql, oyaaa"
 containers:
   aspnet:
     image: .
