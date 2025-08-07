@@ -1,3 +1,4 @@
+```makefile
 # Disable all the default make stuff
 MAKEFLAGS += --no-builtin-rules
 .SUFFIXES:
@@ -28,9 +29,17 @@ REGISTRY ?= ghcr.io/victor-ikeme/awesome-score-spec-examples
 .PHONY: build-and-push
 build-and-push:
 	@echo "Pre-loading official ELK images..."
-	docker pull elasticsearch:7.16.1
-	docker pull logstash:7.16.1
-	docker pull kibana:7.16.1
+	@for image in elasticsearch:7.16.1 logstash:7.16.1 kibana:7.16.1; do \
+		if docker image inspect $$image >/dev/null 2>&1; then \
+			echo "$$image already pulled."; \
+		else \
+			echo "Pulling $$image..."; \
+			if ! docker pull $$image; then \
+				echo "Error: Failed to pull $$image"; \
+				exit 1; \
+			fi; \
+		fi; \
+	done
 	@echo "Images ready for use."
 
 .score-compose/state.yaml:
@@ -51,14 +60,39 @@ compose.yaml: score/score.yaml .score-compose/state.yaml Makefile
 compose-up: compose.yaml
 	docker compose up --build -d --remove-orphans
 
+## Generate a compose.yaml file from the score spec, launch it, and test Kibana (curl /api/status).
+.PHONY: compose-test
+compose-test: compose-up
+	@sleep 60; \
+	docker ps --all; \
+	CONTAINER_PORT=$$(docker compose port ${WORKLOAD_NAME} $(KIB_PORT) | cut -d':' -f2); \
+	if [ -z "$$CONTAINER_PORT" ]; then \
+		echo "Error: No port mapping found for ${WORKLOAD_NAME} on port $(KIB_PORT)"; \
+		docker compose ps; \
+		docker logs $$(docker compose ps -q ${CONTAINER_NAME_ES}) 2>/dev/null || echo "No logs for ${CONTAINER_NAME_ES}"; \
+		docker logs $$(docker compose ps -q ${CONTAINER_NAME_LOGSTASH}) 2>/dev/null || echo "No logs for ${CONTAINER_NAME_LOGSTASH}"; \
+		docker logs $$(docker compose ps -q ${CONTAINER_NAME_KIBANA}) 2>/dev/null || echo "No logs for ${CONTAINER_NAME_KIBANA}"; \
+		exit 1; \
+	fi; \
+	curl -v http://localhost:$$CONTAINER_PORT/api/status -H "Host: localhost:$$CONTAINER_PORT"; \
+	CURL_EXIT=$$?; \
+	if [ $$CURL_EXIT -ne 0 ]; then \
+		echo "Error: Kibana curl failed with exit code $$CURL_EXIT"; \
+		docker compose ps; \
+		docker logs $$(docker compose ps -q ${CONTAINER_NAME_ES}) 2>/dev/null || echo "No logs for ${CONTAINER_NAME_ES}"; \
+		docker logs $$(docker compose ps -q ${CONTAINER_NAME_LOGSTASH}) 2>/dev/null || echo "No logs for ${CONTAINER_NAME_LOGSTASH}"; \
+		docker logs $$(docker compose ps -q ${CONTAINER_NAME_KIBANA}) 2>/dev/null || echo "No logs for ${CONTAINER_NAME_KIBANA}"; \
+		docker compose exec ${CONTAINER_NAME_ES} curl --silent --fail http://localhost:9200/_cluster/health || echo "Elasticsearch healthcheck failed"; \
+		exit $$CURL_EXIT; \
+	fi
+
 ## Generate a compose.yaml file from the score spec, launch it and test (curl) the exposed container.
 .PHONY: compose-test
 compose-test: compose-up
-	@ sleep 120
+	sleep 120
 	docker ps --all
 	curl -v localhost:$(KIB_PORT)/api/status
-
-## -H "Host: $$(score-compose resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}:$(KIB_PORT)')"
+		-H "Host: $$(score-compose resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}:$(KIB_PORT)')"
 
 ## Delete the containers running via compose down.
 .PHONY: compose-down
@@ -73,9 +107,19 @@ kind-create-cluster:
 ## Load ELK images into Kind cluster.
 .PHONY: kind-load-images
 kind-load-images:
-	kind load docker-image elasticsearch:7.16.1
-	kind load docker-image logstash:7.16.1
-	kind load docker-image kibana:7.16.1
+	@for image in elasticsearch:7.16.1 logstash:7.16.1 kibana:7.16.1; do \
+		if docker image inspect $$image >/dev/null 2>&1; then \
+			echo "Loading $$image into Kind cluster..."; \
+			if ! kind load docker-image $$image; then \
+				echo "Error: Failed to load $$image into Kind cluster"; \
+				docker exec -i kind-control-plane ctr --namespace=k8s.io images ls; \
+				exit 1; \
+			fi; \
+		else \
+			echo "Error: $$image not found locally. Run 'make build-and-push' first."; \
+			exit 1; \
+		fi; \
+	done
 
 NAMESPACE ?= default
 
@@ -103,7 +147,7 @@ k8s-up: manifests.yaml
 		--for condition=Ready \
 		--timeout=600s
 
-## Expose the Kibana container in Kubernetes via port-forward and test it, keeping ports open for browser access.
+## Expose the ELK containers in Kubernetes via port-forward and test Kibana, keeping ports open for browser access.
 .PHONY: k8s-test
 k8s-test: k8s-up
 	@echo "Checking Kubernetes resources..."
@@ -120,6 +164,30 @@ k8s-test: k8s-up
 		exit 1; \
 	fi; \
 	kubectl run -i --rm --restart=Never debug --image=curlimages/curl -n ${NAMESPACE} -- curl -v http://$$SVC_IP:$(KIB_PORT)/api/status || echo "Warning: ClusterIP test failed"
+	@echo "Cleaning up existing port-forward processes..."
+	@if command -v pkill >/dev/null; then \
+		pkill -f "kubectl port-forward.*($(KIB_PORT)|$(ES_PORT_1)|$(LOG_PORT_3))" 2>/dev/null || true; \
+	else \
+		for pid in $$(ps aux | grep "[k]ubectl port-forward.*($(KIB_PORT)|$(ES_PORT_1)|$(LOG_PORT_3))" | awk '{print $$2}'); do \
+			kill $$pid 2>/dev/null || true; \
+		done; \
+	fi
+	@echo "Checking for port conflicts on $(KIB_PORT), $(ES_PORT_1), $(LOG_PORT_3)..."
+	@if command -v netstat >/dev/null; then \
+		if netstat -tulnp 2>/dev/null | grep -E ":$(KIB_PORT)|:$(ES_PORT_1)|:$(LOG_PORT_3)"; then \
+			echo "Error: Ports $(KIB_PORT), $(ES_PORT_1), or $(LOG_PORT_3) still in use after cleanup"; \
+			netstat -tulnp | grep -E ":$(KIB_PORT)|:$(ES_PORT_1)|:$(LOG_PORT_3)"; \
+			exit 1; \
+		fi; \
+	elif command -v lsof >/dev/null; then \
+		if lsof -i :$(KIB_PORT),:$(ES_PORT_1),:$(LOG_PORT_3) >/dev/null; then \
+			echo "Error: Ports $(KIB_PORT), $(ES_PORT_1), or $(LOG_PORT_3) still in use after cleanup"; \
+			lsof -i :$(KIB_PORT),:$(ES_PORT_1),:$(LOG_PORT_3); \
+			exit 1; \
+		fi; \
+	else \
+		echo "Warning: Neither netstat nor lsof available, skipping port conflict check"; \
+	fi
 	@echo "Starting port-forward for browser access on ports $(KIB_PORT), $(ES_PORT_1), $(LOG_PORT_3)..."
 	@POD_NAME=$$(kubectl get pods -n ${NAMESPACE} -l app.kubernetes.io/name=${WORKLOAD_NAME} -o jsonpath="{.items[0].metadata.name}"); \
 	if [ -z "$$POD_NAME" ]; then \
@@ -128,22 +196,34 @@ k8s-test: k8s-up
 		exit 1; \
 	fi; \
 	kubectl port-forward $$POD_NAME $(KIB_PORT):$(KIB_PORT) -n ${NAMESPACE} & KIB_PID=$$!; \
+	if ! ps -p $$KIB_PID >/dev/null; then echo "Error: Kibana port-forward (PID $$KIB_PID) failed to start"; exit 1; fi; \
 	kubectl port-forward $$POD_NAME $(ES_PORT_1):$(ES_PORT_1) -n ${NAMESPACE} & ES_PID=$$!; \
+	if ! ps -p $$ES_PID >/dev/null; then echo "Error: Elasticsearch port-forward (PID $$ES_PID) failed to start"; exit 1; fi; \
 	kubectl port-forward $$POD_NAME $(LOG_PORT_3):$(LOG_PORT_3) -n ${NAMESPACE} & LOG_PID=$$!; \
-	sleep 2; \
+	if ! ps -p $$LOG_PID >/dev/null; then echo "Error: Logstash port-forward (PID $$LOG_PID) failed to start"; exit 1; fi; \
+	sleep 15; \
+	echo "Testing Kibana at http://localhost:$(KIB_PORT)/api/status..."; \
 	curl -v http://localhost:$(KIB_PORT)/api/status; \
-	CURL_EXIT=$$?; \
-	if [ $$CURL_EXIT -ne 0 ]; then \
-		echo "Error: curl failed with exit code $$CURL_EXIT"; \
+	CURL_KIB_EXIT=$$?; \
+	if [ $$CURL_KIB_EXIT -ne 0 ]; then \
+		echo "Error: Kibana curl failed with exit code $$CURL_KIB_EXIT"; \
 		kubectl describe pod $$POD_NAME -n ${NAMESPACE}; \
 		kubectl logs $$POD_NAME -n ${NAMESPACE} -c ${CONTAINER_NAME_ES} || echo "Warning: No logs available for ${CONTAINER_NAME_ES}"; \
 		kubectl logs $$POD_NAME -n ${NAMESPACE} -c ${CONTAINER_NAME_LOGSTASH} || echo "Warning: No logs available for ${CONTAINER_NAME_LOGSTASH}"; \
 		kubectl logs $$POD_NAME -n ${NAMESPACE} -c ${CONTAINER_NAME_KIBANA} || echo "Warning: No logs available for ${CONTAINER_NAME_KIBANA}"; \
 		kubectl describe pods -n ${NAMESPACE}; \
 		kill $$KIB_PID $$ES_PID $$LOG_PID 2>/dev/null || true; \
-		exit $$CURL_EXIT; \
+		exit $$CURL_KIB_EXIT; \
+	fi; \
+	echo "Testing Logstash API at http://localhost:$(LOG_PORT_3)..."; \
+	kubectl run -i --rm --restart=Never debug --image=curlimages/curl -n ${NAMESPACE} -- curl -v http://$$SVC_IP:$(LOG_PORT_3) || echo "Warning: Logstash API test failed"; \
+	CURL_LOG_EXIT=$$?; \
+	if [ $$CURL_LOG_EXIT -ne 0 ]; then \
+		echo "Warning: Logstash API curl failed with exit code $$CURL_LOG_EXIT"; \
+		kubectl describe pod $$POD_NAME -n ${NAMESPACE}; \
+		kubectl logs $$POD_NAME -n ${NAMESPACE} -c ${CONTAINER_NAME_LOGSTASH} || echo "Warning: No logs available for ${CONTAINER_NAME_LOGSTASH}"; \
 	else \
-		echo "Port-forwarding active. Access Kibana at http://localhost:$(KIB_PORT)/api/status, Elasticsearch at http://localhost:$(ES_PORT_1), Logstash API at http://localhost:$(LOG_PORT_3)"; \
+		echo "Port-forwarding active. Access Kibana at http://localhost:$(KIB_PORT), Elasticsearch at http://localhost:$(ES_PORT_1), Logstash API at http://localhost:$(LOG_PORT_3)"; \
 	fi
 
 ## Delete the deployment of the local container in Kubernetes and kill port-forward processes.
@@ -176,3 +256,4 @@ generate-catalog-info:
 		score/score.yaml \
 		--output catalog-info.yaml
 	sed 's,$$GITHUB_REPO,victor-ikeme/awesome-score-spec-examples,g' -i catalog-info.yaml
+```
