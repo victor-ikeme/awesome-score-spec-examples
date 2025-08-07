@@ -1,0 +1,76 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: elk-stack
+  annotations:
+    awesome-score-spec.dev/description: "An ELK (Elasticsearch, Logstash, Kibana) stack defined as a single, multi-container workload."
+service:
+  ports:
+    elasticsearch-http:
+      port: 9200
+      targetPort: 9200
+    elasticsearch-transport:
+      port: 9300
+      targetPort: 9300
+    logstash-beats-tcp:
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+    logstash-beats-udp:
+      port: 5000
+      targetPort: 5000
+      protocol: UDP
+    logstash-gelf:
+      port: 5044
+      targetPort: 5044
+    logstash-api:
+      port: 9600
+      targetPort: 9600
+    kibana-http:
+      port: 5601
+      targetPort: 5601
+containers:
+  elasticsearch:
+    image: elasticsearch:7.16.1
+    variables:
+      discovery.type: "single-node"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    readinessProbe:
+      exec:
+        command: ["curl", "--silent", "--fail", "localhost:9200/_cluster/health"]
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+  logstash:
+    image: logstash:7.16.1
+    args: ["logstash", "-f", "/usr/share/logstash/pipeline/logstash-nginx.config"]
+    variables:
+      discovery.seed_hosts: logstash
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+    files:
+      /usr/share/logstash/pipeline/logstash-nginx.config:
+        source: ../logstash/pipeline/logstash-nginx.config
+    volumes:
+      /home/nginx.log:
+        source: ${resources.log-volume}
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+  kibana:
+    image: kibana:7.16.1
+    variables:
+      ELASTICSEARCH_HOSTS: "http://localhost:9200"
+    readinessProbe:
+      httpGet:
+        path: /api/status
+        port: 5601
+resources:
+  log-volume:
+    type: volume
