@@ -74,3 +74,11 @@ containers:
 resources:
   log-volume:
     type: volume
+  dns:
+    type: dns
+  route:
+    type: route
+    params:
+      host: ${resources.dns.host}
+      path: /
+      port: 5601

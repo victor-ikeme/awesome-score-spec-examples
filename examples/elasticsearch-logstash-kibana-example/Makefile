@@ -35,6 +35,7 @@ build-and-push:
 
 .score-compose/state.yaml:
 	score-compose init \
+		--provisioners https://raw.githubusercontent.com/score-spec/community-provisioners/refs/heads/main/service/score-compose/10-dns-with-url.provisioners.yaml \
 		--no-sample
 
 compose.yaml: score/score.yaml .score-compose/state.yaml Makefile
@@ -56,8 +57,8 @@ compose-up: compose.yaml
 compose-test: compose-up
 	sleep 5
 	docker ps --all
-	curl -v localhost:$(LOG_PORT_3) \
-		-H "Host: $$(score-compose resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}:$(LOG_PORT_3)')"
+	curl -v localhost:$(KIB_PORT)/api/status \
+		-H "Host: $$(score-compose resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}:$(KIB_PORT)')"
 
 ## Delete the containers running via compose down.
 .PHONY: compose-down
