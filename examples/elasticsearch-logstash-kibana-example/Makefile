@@ -54,10 +54,10 @@ compose-up: compose.yaml
 ## Generate a compose.yaml file from the score spec, launch it and test (curl) the exposed container.
 .PHONY: compose-test
 compose-test: compose-up
-	sleep 5
+	sleep 10
 	docker ps --all
-	curl -v localhost:$(KIB_PORT)/api/status \
-	
+	curl -v localhost:$(KIB_PORT)/api/status
+
 ## -H "Host: $$(score-compose resources get-outputs dns.default#${WORKLOAD_NAME}.dns --format '{{ .host }}:$(KIB_PORT)')"
 
 ## Delete the containers running via compose down.
