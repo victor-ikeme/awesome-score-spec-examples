@@ -13,7 +13,7 @@ jobs:
       dirs: ${{ steps.set-dirs.outputs.dirs }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Find changed directories
@@ -44,7 +44,7 @@ jobs:
       yaml_files: ${{ steps.set-yaml-files.outputs.yaml_files }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Find YAML files in score/
         id: set-yaml-files
         run: |
@@ -71,7 +71,7 @@ jobs:
       HUMCTL_VERSION: '*'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install humctl
         uses: humanitec/setup-cli-action@v1
         with:
@@ -93,7 +93,7 @@ jobs:
         yaml_file: ${{ fromJson(needs.detect-yaml-files.outputs.yaml_files) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install score-compose
         uses: score-spec/setup-score@v3
         with:
@@ -131,7 +131,7 @@ jobs:
         yaml_file: ${{ fromJson(needs.detect-yaml-files.outputs.yaml_files) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install score-k8s
         uses: score-spec/setup-score@v3
         with:
