@@ -21,7 +21,7 @@ jobs:
       dir: ${{ steps.set-dir.outputs.dir }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set directory
         id: set-dir
         run: |
@@ -63,17 +63,17 @@ jobs:
         dockerfile: ${{ fromJson(needs.detect-dockerfiles.outputs.dockerfiles) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to GHCR
         run: |
           echo ${{ secrets.GITHUB_TOKEN }} | docker login \
             ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Build and push container image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: examples/${{ needs.detect-dockerfiles.outputs.dir }}/apps/${{ matrix.dockerfile }}
           file: examples/${{ needs.detect-dockerfiles.outputs.dir }}/apps/${{ matrix.dockerfile }}/Dockerfile
